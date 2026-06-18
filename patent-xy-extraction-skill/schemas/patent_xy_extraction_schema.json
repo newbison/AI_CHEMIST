@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatentXYExtraction",
+  "type": "object",
+  "required": [
+    "patent_id",
+    "metadata",
+    "document_map",
+    "x_variables",
+    "y_outputs",
+    "xy_relationships"
+  ],
+  "properties": {
+    "patent_id": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "assignee": {
+          "type": "string"
+        },
+        "publication_date": {
+          "type": "string"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "document_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "extraction_priority": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "x_variables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "normalized_x",
+          "category",
+          "source",
+          "confidence"
+        ],
+        "properties": {
+          "x_id": {
+            "type": "string"
+          },
+          "original_term": {
+            "type": "string"
+          },
+          "normalized_x": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "value_or_range": {
+            "type": "string"
+          },
+          "tested": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "related_y": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "criticality": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "y_outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "normalized_y",
+          "source",
+          "confidence"
+        ],
+        "properties": {
+          "y_id": {
+            "type": "string"
+          },
+          "original_term": {
+            "type": "string"
+          },
+          "normalized_y": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "test_method": {
+            "type": "string"
+          },
+          "substrate_or_condition": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "comparability_concern": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "xy_relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "direction",
+          "evidence_level",
+          "confidence"
+        ],
+        "properties": {
+          "relationship_id": {
+            "type": "string"
+          },
+          "x": {
+            "type": "string"
+          },
+          "y": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "evidence_level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "source_examples_or_tables": {
+            "type": "string"
+          },
+          "tested_range": {
+            "type": "string"
+          },
+          "material_system": {
+            "type": "string"
+          },
+          "test_method": {
+            "type": "string"
+          },
+          "confounders": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "interpretation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "doe_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}
