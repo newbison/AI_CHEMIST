@@ -23,6 +23,15 @@ into:
 CTQs → evidence map → X-Y hypotheses → DOE plan → lab execution plan → learning record → reusable design rules
 ```
 
+## Skill Dependencies
+
+This skill is an **orchestrator**. It depends on `patent-xy-extraction-skill` as a **hard dependency** for patent X-Y extraction.
+
+- Install both skills together as a pair.
+- The handoff contract is defined in `patent-xy-extraction-skill/HANDOFF.md`.
+- Step 04 (`workflows/04_patent_doe_extraction.md`) invokes `patent-xy-extraction-skill` by name and ingests its typed output bundle.
+- If `patent-xy-extraction-skill` is not installed, the patent-extraction step cannot run.
+
 ## When to Use This Skill
 
 Use this skill when the user asks for any of the following:
@@ -86,13 +95,14 @@ Follow this sequence unless the user explicitly asks for a subset:
 1. Load `workflows/01_project_intake.md`
 2. Load `workflows/02_voc_to_ctq.md`
 3. Load `workflows/03_evidence_mining.md`
-4. Load `workflows/04_patent_doe_extraction.md`
-5. Load `workflows/05_xy_synthesis.md`
-6. Load `workflows/06_feasibility_risk_screen.md`
-7. Load `workflows/07_experiment_portfolio.md`
-8. Load `workflows/08_post_experiment_learning.md`
-9. Load `workflows/09_portfolio_replication.md`
-10. Use `templates/final_report_template.md` for final output.
+4. Load `workflows/04a_patent_search_and_rank.md` — search, score, and select top-N patents
+5. Load `workflows/04_patent_doe_extraction.md` — hand off the ranked set to `patent-xy-extraction-skill`; ingest its bundle
+6. Load `workflows/05_xy_synthesis.md`
+7. Load `workflows/06_feasibility_risk_screen.md`
+8. Load `workflows/07_experiment_portfolio.md`
+9. Load `workflows/08_post_experiment_learning.md`
+10. Load `workflows/09_portfolio_replication.md`
+11. Use `templates/final_report_template.md` for final output.
 
 If the user provides only partial information, still produce a useful structured output and explicitly list missing inputs.
 
