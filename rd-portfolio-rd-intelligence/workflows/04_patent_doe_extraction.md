@@ -1,83 +1,76 @@
-# Workflow 04 — Patent DOE / X / Y Extraction
+# Workflow 04 — Patent DOE / X / Y Extraction (via patent-xy-extraction-skill)
 
 ## Purpose
 
-Extract structured technical information from patents so they can inform experiment design.
+Hand the ranked patent set from `04a_patent_search_and_rank.md` to the dedicated extractor skill `patent-xy-extraction-skill`, then ingest its returned bundle into this orchestrator's downstream synthesis.
+
+This workflow does **not** extract Xs/Ys inline. Extraction is delegated. See `patent-xy-extraction-skill/HANDOFF.md` for the contract.
+
+## Hard Dependency
+
+This step requires `patent-xy-extraction-skill` to be installed alongside this skill. Both ship as a pair. If it is not installed, this step cannot run.
+
+## Step 1 — Package the extraction request
+
+Assemble the inputs the contract requires:
+
+```text
+1. Patent set            -> the Patent Priority List from 04a (top-N, score >= 30)
+2. Product/platform ctx  -> from 01_project_intake
+3. Active CTQs           -> from 02_voc_to_ctq
+4. Target test methods   -> internal/standard methods Ys must be comparable to
+5. The question          -> one sentence: what must this extraction teach us?
+```
+
+## Step 2 — Invoke the extractor
+
+Invoke `patent-xy-extraction-skill` by name, passing the packaged request.
+
+The extractor returns the typed bundle defined in `HANDOFF.md`:
+
+```text
+1. Per-patent extraction cards
+2. Normalized X dictionary
+3. Normalized Y dictionary
+4. Test-method comparability matrix
+5. Cross-patent X-Y matrix
+6. Contradiction matrix
+7. DOE hypothesis library
+8. Relevance-priority list
+```
+
+Every item in the bundle carries source location, evidence level (0–5), confidence, tested range, material system, test method, and confounders.
+
+## Step 3 — Ingest the bundle
+
+Map the returned bundle into this orchestrator's downstream inputs:
+
+```text
+normalized X dictionary + normalized Y dictionary   -> feed 05_xy_synthesis
+cross-patent X-Y matrix + contradiction matrix      -> feed 05_xy_synthesis
+test-method comparability matrix                    -> feed 05_xy_synthesis + 06_feasibility_risk_screen
+DOE hypothesis library                              -> feed 07_experiment_portfolio
+relevance-priority list                             -> cross-check vs 04a Patent Priority List
+```
+
+## Required Output — Portfolio-Side Patent Summary
+
+Produce the orchestrator's portfolio-side view (one row per patent) using `templates/patent_summary_template.md`. This is the summary the rest of the workflow consumes; the deep per-patent cards remain in the extractor's bundle.
 
 ## Mandatory Separation
 
-Separate:
+Preserve across the handoff:
 
 ```text
-Patent-disclosed fact
-AI-extracted structure
+patent-disclosed fact
+AI-normalized extraction
 AI-inferred relationship
 R&D recommendation
-```
-
-## Per-Patent Extraction Steps
-
-For each patent:
-
-1. Identify patent metadata.
-2. Summarize the technical problem.
-3. Extract product/material structure.
-4. Extract claims relevant to the project.
-5. Extract experimental examples.
-6. Identify input X variables.
-7. Identify output Y responses.
-8. Extract test methods and units.
-9. Infer X-Y relationships only when evidence supports it.
-10. Flag missing information and comparability issues.
-11. Flag possible IP risk signals for legal review.
-
-## Required Output
-
-```markdown
-# Patent Technical Extraction Card
-
-## Patent Metadata
-- Patent / publication number:
-- Assignee:
-- Publication date:
-- Jurisdiction:
-- Status, if known:
-
-## Technical Purpose
-[Summary]
-
-## Product / Material Structure
-| Component | Disclosed Detail | Source Location | Confidence |
-|---|---|---|---|
-
-## Relevant Claims
-| Claim | Relevance | Risk Signal | Notes |
-|---|---|---|---|
-
-## Experimental Examples
-| Example | X Variables | Y Responses | Test Method | Key Result | Source Location |
-|---|---|---|---|---|---|
-
-## Input X Variables
-| X | Category | Range / Level | Evidence | Expected Effect |
-|---|---|---|---|---|
-
-## Output Y Responses
-| Y | Unit | Test Method | Target Direction | Comparability Concern |
-|---|---|---|---|---|
-
-## X-Y Relationships
-| X | Y | Direction | Evidence Type | Confidence | Limitation |
-|---|---|---|---|---|---|
-
-## Fact / Extraction / Inference / Recommendation
-| Statement | Type | Source | Confidence |
-|---|---|---|---|
-
-## Open Questions
-- ...
+human-approved decision
 ```
 
 ## Quality Check
 
-Do not infer a trend from a single patent example unless clearly marked as low-confidence inference.
+- The Patent Priority List from 04a and the relevance-priority list returned by the extractor must agree. Flag any divergence.
+- Every ingested X-Y relationship must retain its evidence level and confidence — do not flatten them out.
+- Do not present a patent claim as experimental proof. Do not produce legal freedom-to-operate conclusions.
