@@ -149,6 +149,15 @@ When analyzing multiple patents, produce:
 - If examples use different substrates, conditioning, aging, or methods, mark comparability as limited.
 - Do not overgeneralize beyond disclosed material system and tested range.
 
+## Used by
+
+This skill is a **focused extractor**. It is invoked by the orchestrator skill `rd-portfolio-rd-intelligence` at its patent-extraction step.
+
+- The composition contract is in `HANDOFF.md`.
+- The orchestrator passes a ranked patent set + product/platform context + active CTQs + target test methods + the question to answer.
+- This skill returns the typed bundle defined in `HANDOFF.md`.
+- Both skills ship as a pair. This skill can also be used standalone on any patent set.
+
 ## Useful Supporting Files
 
 Load these as needed:
