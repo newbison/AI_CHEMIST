@@ -12,10 +12,28 @@ Copy the full folder `rd-portfolio-rd-intelligence/` into your Claude Skills dir
 
 Or upload the zipped skill folder in Claude.ai if your environment supports custom skill upload.
 
+## How These Two Skills Compose
+
+This skill is the **orchestrator**. It depends on `patent-xy-extraction-skill`:
+
+```text
+rd-portfolio-rd-intelligence (orchestrator)   ← THIS SKILL
+   01 intake → 02 VOC→CTQ → 03 evidence mining
+   → 04a search & rank (select top-N patents, score >= 30)
+   → 04 hand off ranked set to patent-xy-extraction-skill
+        extract: Xs, Ys, examples, test methods, X-Y matrix, contradictions, DOE hypotheses
+        return typed bundle (see HANDOFF.md)
+   → 05 X-Y synthesis → 06 risk screen → 07 experiment portfolio → 08 learning → 09 replication
+```
+
+Install both skills as a pair. The handoff contract is in `patent-xy-extraction-skill/HANDOFF.md`.
+
 ## Validate
 
+Run the shared validator from the repo root:
+
 ```bash
-python scripts/validate_skill_structure.py
+python validate_skill_structure.py --all
 ```
 
 ## Use
