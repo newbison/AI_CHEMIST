@@ -11,5 +11,26 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Environment variables (contain API keys)
+.env
+.env.local
+.env.production
+
+# Node / frontend build
+node_modules/
+webapp/frontend/node_modules/
+webapp/frontend/dist/
+
+# Agent / IDE config
+.workbuddy/
+.trae/
+
+# Generated reports
+docs/reports/
+
+# Patent cache (generated at runtime)
+webapp/backend/local_patents.json
+
 # Temp
 _tmp_*
+tmp/
