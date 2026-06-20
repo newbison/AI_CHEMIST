@@ -169,7 +169,7 @@ def _translate_keywords(keywords: str) -> str:
 # ---------------------------------------------------------------------------
 
 def search_patentsview(
-    keywords: str, *, num: int = 20, timeout: float = 15.0
+    keywords: str, *, num: int = 20, timeout: float = 8.0
 ) -> list[Patent]:
     """从 USPTO PatentsView API 检索美国专利。"""
     url = "https://api.patentsview.org/patents/query"
@@ -217,7 +217,7 @@ def search_patentsview(
 # ---------------------------------------------------------------------------
 
 def search_google_patents(
-    keywords: str, *, num: int = 20, country: str = "US", timeout: float = 12.0,
+    keywords: str, *, num: int = 20, country: str = "US", timeout: float = 6.0,
     max_retries: int = 0,
 ) -> list[Patent]:
     """从 Google Patents xhr/query 端点检索。
@@ -274,7 +274,7 @@ def search_google_patents(
 # ---------------------------------------------------------------------------
 
 def search_google_scholar(
-    keywords: str, *, num: int = 20, timeout: float = 10.0
+    keywords: str, *, num: int = 20, timeout: float = 6.0
 ) -> list[Patent]:
     """从 Google Scholar 检索专利。
 
@@ -454,7 +454,7 @@ def _get_epo_token() -> str | None:
 
 
 def search_epo_ops(
-    keywords: str, *, num: int = 20, timeout: float = 12.0
+    keywords: str, *, num: int = 20, timeout: float = 8.0
 ) -> list[Patent]:
     """从 EPO Open Patent Services 检索全球专利。
 
@@ -619,7 +619,7 @@ def _clean_xml(xml_str: str) -> str:
 # ---------------------------------------------------------------------------
 
 def search_wipo_patentscope(
-    keywords: str, *, num: int = 20, timeout: float = 12.0
+    keywords: str, *, num: int = 20, timeout: float = 8.0
 ) -> list[Patent]:
     """从 WIPO Patentscope 检索国际专利。
 
@@ -986,45 +986,35 @@ def search_patents_with_fallback(
         if en_kw == keywords:
             en_kw = keywords  # 翻译失败，用原文
 
-    # ---- 第 1 级：Google Patents（最快，US 优先） ----
-    gp_us = search_google_patents(en_kw if en_kw != keywords else keywords, num=num, country="US")
-    if collect(gp_us, "Google Patents US"):
+    best_kw = en_kw if en_kw != keywords else keywords  # 优先用翻译后的英文
+
+    # ---- 第 1 级：Google Patents（单次快速探测，5s 超时） ----
+    # 被墙时 TCP 连接会挂到超时，4 次尝试 = 48s+，砍成 1 次全球检索 5s 超时
+    gp = search_google_patents(best_kw, num=num, country="", timeout=5.0)
+    if collect(gp, "Google Patents"):
         return list(all_candidates.values())[:num]
 
-    gp_global = search_google_patents(en_kw if en_kw != keywords else keywords, num=num, country="")
-    if collect(gp_global, "Google Patents Global"):
-        return list(all_candidates.values())[:num]
-
-    # 如果中文翻译与原文不同，也用原文搜一遍
-    if en_kw != keywords:
-        gp_us_cn = search_google_patents(keywords, num=num, country="US")
-        if collect(gp_us_cn, "Google Patents US (CN)"):
-            return list(all_candidates.values())[:num]
-        gp_global_cn = search_google_patents(keywords, num=num, country="")
-        if collect(gp_global_cn, "Google Patents Global (CN)"):
-            return list(all_candidates.values())[:num]
-
-    if not gp_us and not gp_global:
+    if not gp:
         print("[fallback] Google Patents 不可达（被墙/503），切换到备选源")
 
-    # ---- 第 2 级：USPTO PatentsView ----
+    # ---- 第 2 级：USPTO PatentsView（美国专利，8s 超时） ----
     if prefer_us:
-        us_pats = search_patentsview(en_kw, num=num)
+        us_pats = search_patentsview(best_kw, num=num, timeout=8.0)
         if collect(us_pats, "USPTO PatentsView"):
             return list(all_candidates.values())[:num]
 
-    # ---- 第 3 级：EPO OPS（欧洲专利局） ----
-    epo_pats = search_epo_ops(en_kw, num=num)
+    # ---- 第 3 级：EPO OPS（欧洲专利局，8s 超时） ----
+    epo_pats = search_epo_ops(best_kw, num=num, timeout=8.0)
     if collect(epo_pats, "EPO OPS"):
         return list(all_candidates.values())[:num]
 
-    # ---- 第 4 级：WIPO Patentscope（联合国） ----
-    wipo_pats = search_wipo_patentscope(en_kw, num=num)
+    # ---- 第 4 级：WIPO Patentscope（联合国，8s 超时） ----
+    wipo_pats = search_wipo_patentscope(best_kw, num=num, timeout=8.0)
     if collect(wipo_pats, "WIPO Patentscope"):
         return list(all_candidates.values())[:num]
 
-    # ---- 第 5 级：Google Scholar（谷歌学术） ----
-    scholar_pats = search_google_scholar(en_kw, num=num)
+    # ---- 第 5 级：Google Scholar（谷歌学术，6s 超时） ----
+    scholar_pats = search_google_scholar(best_kw, num=num, timeout=6.0)
     if collect(scholar_pats, "Google Scholar"):
         return list(all_candidates.values())[:num]
 
@@ -1084,18 +1074,18 @@ def search_by_strategies(
             continue
         # 角度间间隔 2 秒（第一个不等待），降低 503 风险
         if i > 0:
-            time.sleep(2)
-        # 每个角度走 Google Patents（US 优先 + 全球兜底）
-        hits = search_google_patents(query, num=num_per_angle, country="US")
+            time.sleep(0.5)
+        # Google Patents 快速探测（5s超时，被墙时快速失败）
+        hits = search_google_patents(query, num=num_per_angle, country="US", timeout=5.0)
         if len(hits) < 3:
-            time.sleep(1)
-            hits = search_google_patents(query, num=num_per_angle, country="")
+            time.sleep(0.5)
+            hits = search_google_patents(query, num=num_per_angle, country="", timeout=5.0)
 
         if not hits:
             consecutive_failures += 1
-            # 前 2 个角度连续失败 → Google Patents 大概率在限流，停止后续
-            if consecutive_failures >= 2 and not patent_map:
-                print(f"[search_by_strategies] 前 {consecutive_failures} 个角度连续失败，停止后续（Google Patents 可能限流）")
+            # 第 1 个角度失败 → Google 被墙，立即回退
+            if consecutive_failures >= 1 and not patent_map:
+                print(f"[search_by_strategies] 角度 {i+1} 失败，Google Patents 被墙/限流，立即回退")
                 return []
         else:
             consecutive_failures = 0
