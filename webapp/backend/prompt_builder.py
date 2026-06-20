@@ -111,31 +111,43 @@ def build_user_prompt(voc: str, patents: list[dict]) -> str:
     without_detail = len(patents) - with_detail
 
     # ---- 任务指令（放最前面！模型先知道要做什么，再读专利） ----
+    # 控制分析深度：专利太多时，选最相关的深入分析
+    max_deep = min(len(patents), 15)  # 最多深度分析 15 篇
     parts.append(
         "# 任务：深度分析专利并生成 R&D 智能报告\n\n"
-        f"你需要逐篇分析下方 {len(patents)} 篇专利（其中 {with_detail} 篇包含完整文本，"
-        f"{without_detail} 篇仅有摘要），"
-        "按 rd-portfolio-rd-intelligence workflow 01→09 生成一份完整的 R&D 智能报告。\n\n"
+        f"下方共有 {len(patents)} 篇专利（其中 {with_detail} 篇包含完整文本）。\n"
+        f"**重要：你只需要深度分析其中最相关的 {max_deep} 篇，其余的可简要归类。**\n\n"
+        "## 工作流程\n"
+        f"1. 快速浏览所有 {len(patents)} 篇专利的摘要，按与 VOC 的相关性排序\n"
+        f"2. 选出最相关的 {max_deep} 篇，逐篇阅读完整文本（Claims + Description）\n"
+        "3. 对每篇深度分析的专利，抽取 X→Y 关系并标注层级\n"
+        "4. 横向比较不同专利的技术方案\n"
+        "5. 生成完整报告\n\n"
         "## 关键要求\n"
-        "- **逐篇抽取**：对每篇有完整文本的专利，用 patent-xy-extraction-skill 抽取"
-        "  X（材料/组分/工艺参数）→ Y（性能/效果）关系，标注层级（事实/抽取/推断/假设/DOE）\n"
-        "- **引用专利号**：报告中每一条技术发现必须注明来源专利号（如 US10659579B2）\n"
-        "- **横向比较**：比较不同专利的技术方案差异、性能优劣、适用场景\n"
-        "- **不要泛泛而谈**：避免「该领域有多种技术方案」这种空话，"
-        "要具体到「专利 A 用了方案 X 达到性能 Y，专利 B 用了方案 Z 达到性能 W」\n"
-        "- **针对 VOC 做筛选**：不是所有专利都相关，判断哪些专利真正针对用户的 VOC，"
-        "哪些是背景/间接相关\n\n"
-        "报告结构遵循参考材料中的 final_report_template，必须包含："
-        "项目摄入、VOC→CTQ、证据挖掘、专利优先级列表（含评分和理由）、"
-        "专利抽取摘要（X字典/Y字典/X-Y矩阵/矛盾矩阵）、X-Y综合、"
-        "风险筛查、实验组合与DOE设计、后实验学习模板、组合复制指南。\n\n"
-        "直接输出报告正文，不要解释你将要做什么。"
+        "- **深度分析**：对选中的专利，逐篇提取具体的 X（材料/组分/工艺参数）"
+        "  → Y（性能/效果）数值关系，标注层级（事实/抽取/推断/假设/DOE）\n"
+        "- **必须引用专利号**：每条技术发现标注来源专利号\n"
+        "- **写具体数值**：不要写「提高了粘接力」，要写「粘接力从 3.2N/cm 提升到 8.7N/cm」\n"
+        "- **横向对比**：用表格比较不同专利的技术方案、性能数据、适用场景\n"
+        "- **不要泛泛而谈**：禁止「该领域有多种方案」这类空话\n"
+        "- **每个章节都要有内容**：不要输出空章节。如果某个章节没有足够信息，"
+        "写明「基于现有专利数据不足以完成此章节，建议补充 XX 实验」\n\n"
+        "报告结构遵循 final_report_template。"
+        "直接输出报告正文。"
     )
 
     # ---- VOC ----
     parts.append(f"# 用户 VOC\n\n{voc}\n")
 
     # ---- 入选专利（详情文本附在每篇后面） ----
+    # 动态截断：专利多时每篇保留更少，保证总 prompt 可控
+    if len(patents) > 20:
+        detail_limit = 4000
+    elif len(patents) > 10:
+        detail_limit = 6000
+    else:
+        detail_limit = 8000
+
     parts.append(f"# 入选专利（共 {len(patents)} 篇，{with_detail} 篇有完整文本）\n")
     for i, p in enumerate(patents, 1):
         has_detail = bool(p.get("detail_text"))
@@ -149,7 +161,7 @@ def build_user_prompt(voc: str, patents: list[dict]) -> str:
             f"- 摘要/片段:\n{p.get('snippet', 'N/A')}\n"
         )
         if has_detail:
-            parts.append(f"- 详情文本:\n{p['detail_text'][:8000]}\n")
+            parts.append(f"- 详情文本:\n{p['detail_text'][:detail_limit]}\n")
 
     # ---- 参考材料（skill 文件放末尾） ----
     parts.append(_build_skill_reference())
