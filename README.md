@@ -3,6 +3,13 @@
 </p>
 
 <p align="center">
+  <a href="https://spc-batch-monito-tgnpmprhsqmpuxr4q6wktu.streamlit.app/"><img src="https://img.shields.io/badge/SPC_Platform-Live_Demo-00BFA5?style=for-the-badge&logo=streamlit&logoColor=white" alt="SPC Live"></a>
+  <a href="https://ai-chemist.zeabur.app"><img src="https://img.shields.io/badge/FORGE_AI-Live_Demo_(Zeabur)-6366F1?style=for-the-badge&logo=fastapi&logoColor=white" alt="FORGE AI Live"></a>
+  <a href="https://github.com/newbison/AI_CHEMIST"><img src="https://img.shields.io/badge/GitHub-Open_Source-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
+  <a href="https://github.com/newbison/spc-batch-monitor"><img src="https://img.shields.io/badge/SPC_Repo-Open_Source-181717?style=for-the-badge&logo=github&logoColor=white" alt="SPC Repo"></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
@@ -60,6 +67,32 @@ Traditional: search (2 days) → read & screen (3 days) → extract & analyze (2
 ```
 
 ---
+
+---
+
+## 👀 See It in Action
+
+This is what FORGE AI actually does when you submit a research question:
+
+<pre style="background:#060E18;color:#EBE8E3;padding:20px;border-radius:8px;font-size:12px;line-height:1.6;overflow-x:auto">
+<b style="color:#00BFA5">[patent_search]</b> Searching: "Ti alloy osseointegration bone implant additive manufacturing"
+<b style="color:#00BFA5">[google_patents]</b> Found 42 results in 1.2s
+<b style="color:#00BFA5">[fallback]</b> Google Patents returned 30+ results — threshold met, returning early
+
+<b style="color:#00BFA5">[detail]</b> OK Google Patents US10895000B2: 419KB HTML -> 10,742 chars
+<b style="color:#00BFA5">[detail]</b> OK Google Patents CN109234569B: 436KB HTML -> 11,726 chars
+<b style="color:#00BFA5">[detail]</b> OK Google Patents EP3428288B1: 206KB HTML -> 10,309 chars
+       ...
+<b style="color:#00BFA5">[generate]</b> Detail fetch complete: <b>30/30 patents successful</b>
+<b style="color:#00BFA5">[generate]</b> Prompt: <b>207,301 chars ~51,825 tokens</b>
+       | <b style="color:#2ECC71">[Abstract]x30 [Claims]x30 [Description]x30</b>
+       | <b>30 patents with full detail_text</b>
+
+<b style="color:#00BFA5">[generate]</b> Calling DeepSeek V3 (128K context, SSE streaming)...
+<b style="color:#F39C12">→ Report generated in 3 minutes. 30 patents analyzed. Every claim cited.</b>
+</pre>
+
+> **This is not mock data.** Every patent number is real. Every X-Y relationship is traced to a source. The 30 patents above were fetched from Google Patents on June 20, 2026 for a Ti alloy bone implant project.
 
 ---
 

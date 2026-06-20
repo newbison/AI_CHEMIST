@@ -3,6 +3,13 @@
 </p>
 
 <p align="center">
+  <a href="https://spc-batch-monito-tgnpmprhsqmpuxr4q6wktu.streamlit.app/"><img src="https://img.shields.io/badge/SPC_Platform-在线体验-00BFA5?style=for-the-badge&logo=streamlit&logoColor=white" alt="SPC Live"></a>
+  <a href="https://ai-chemist.zeabur.app"><img src="https://img.shields.io/badge/FORGE_AI-在线体验_(Zeabur)-6366F1?style=for-the-badge&logo=fastapi&logoColor=white" alt="FORGE AI Live"></a>
+  <a href="https://github.com/newbison/AI_CHEMIST"><img src="https://img.shields.io/badge/GitHub-开源代码-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
+  <a href="https://github.com/newbison/spc-batch-monitor"><img src="https://img.shields.io/badge/SPC_仓库-开源代码-181717?style=for-the-badge&logo=github&logoColor=white" alt="SPC Repo"></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
@@ -60,6 +67,32 @@
 ```
 
 ---
+
+---
+
+## 👀 实际运行效果
+
+这是 FORGE AI 提交研究问题后的真实输出：
+
+<pre style="background:#060E18;color:#EBE8E3;padding:20px;border-radius:8px;font-size:12px;line-height:1.6;overflow-x:auto">
+<b style="color:#00BFA5">[patent_search]</b> 搜索: "Ti 合金 骨整合 骨植入物 增材制造"
+<b style="color:#00BFA5">[google_patents]</b> 1.2 秒内找到 42 条结果
+<b style="color:#00BFA5">[fallback]</b> Google Patents 返回 30+ 条——达到阈值，提前返回
+
+<b style="color:#00BFA5">[detail]</b> OK Google Patents US10895000B2: 419KB HTML -> 10,742 字符
+<b style="color:#00BFA5">[detail]</b> OK Google Patents CN109234569B: 436KB HTML -> 11,726 字符
+<b style="color:#00BFA5">[detail]</b> OK Google Patents EP3428288B1: 206KB HTML -> 10,309 字符
+       ...
+<b style="color:#00BFA5">[generate]</b> 详情抓取完成: <b>30/30 篇专利成功</b>
+<b style="color:#00BFA5">[generate]</b> Prompt: <b>207,301 字符 ~51,825 tokens</b>
+       | <b style="color:#2ECC71">[Abstract]x30 [Claims]x30 [Description]x30</b>
+       | <b>30 篇专利含完整详情文本</b>
+
+<b style="color:#00BFA5">[generate]</b> 调用 DeepSeek V3（128K 上下文，SSE 流式输出）...
+<b style="color:#F39C12">→ 3 分钟生成报告。30 篇专利分析完毕。每项声明均标注来源。</b>
+</pre>
+
+> **这不是模拟数据。** 每个专利号都是真实的。每条 X-Y 关系都可追溯到来源。以上 30 篇专利于 2026 年 6 月 20 日从 Google Patents 实时抓取，用于 Ti 合金骨植入物项目。
 
 ---
 
