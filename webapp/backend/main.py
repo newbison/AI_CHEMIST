@@ -231,8 +231,8 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
         # 可选：抓取每篇专利详情（带可达性预检，避免不可达时整段同步卡死）
         if req.fetch_details:
             reachable = _patents_source_reachable()
-            if not reachable:
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail_skipped', 'reason': 'patents.google.com 不可达，使用已有摘要继续生成'})}\n\n"
+            if not reachable.get("any_reachable"):
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail_skipped', 'reason': '所有专利数据源均不可达，使用已有摘要继续生成'})}\n\n"
             else:
                 enriched: list[dict] = []
                 for i, p in enumerate(patents, 1):
@@ -318,23 +318,33 @@ def export_pptx(req: ExportPptxRequest):
 # 辅助
 # ---------------------------------------------------------------------------
 
-def _patents_source_reachable(timeout: float = 4.0) -> bool:
-    """快速预检 patents.google.com 是否可达。
+def _patents_source_reachable(timeout: float = 4.0) -> dict[str, bool]:
+    """快速预检各专利数据源是否可达。
 
-    在网络受限环境（如本机）下 Google Patents 不可达，逐篇抓取会串行卡满
-    N×12s 超时、且发生在 SSE 首字节之前，导致前端"一直生成中"。
-    预检失败则跳过详情抓取，直接用检索阶段已有的摘要生成报告。
+    在网络受限环境（如中国）下，Google Patents 不可达但 EPO/WIPO
+    可能可达。返回各源的可达性，供调用方决定是否跳过详情抓取。
     """
-    import httpx
-    try:
-        with httpx.Client(
-            headers={"User-Agent": "Mozilla/5.0", "Accept": "*/*"},
-            timeout=timeout,
-        ) as client:
-            resp = client.head("https://patents.google.com/", follow_redirects=True)
-            return resp.status_code < 500
-    except Exception:
-        return False
+    sources = {
+        "google": "https://patents.google.com/",
+        "epo": "https://worldwide.espacenet.com/",
+        "wipo": "https://patentscope.wipo.int/",
+        "scholar": "https://scholar.google.com/",
+    }
+    result: dict[str, bool] = {}
+    for name, url in sources.items():
+        try:
+            with httpx.Client(
+                headers={"User-Agent": "Mozilla/5.0", "Accept": "*/*"},
+                timeout=timeout,
+            ) as client:
+                resp = client.head(url, follow_redirects=True)
+                result[name] = resp.status_code < 500
+        except Exception:
+            result[name] = False
+
+    # 只要有一个可达就不算完全不可达
+    result["any_reachable"] = any(result.values())
+    return result
 
 
 def _extract_keywords(voc: str) -> str:

@@ -1,10 +1,13 @@
-"""专利检索模块 — 适应网络受限环境。
+"""专利检索模块 — 多源回退，适应网络受限环境。
 
-数据源优先级：
-1. USPTO PatentsView API（官方 US 专利 API）— 若网络可达
-2. Google Patents xhr/query — 若网络可达
-3. LLM 生成（DeepSeek 基于训练知识生成候选专利）— 网络受限时的主路径
-4. 中国专利回退
+数据源优先级（自动回退，用户无感知）：
+1. Google Patents xhr/query          — 最快，US/全球
+2. USPTO PatentsView API             — 美国政府 API
+3. EPO OPS API（欧洲专利局）          — 国内可达
+4. WIPO Patentscope（联合国 WIPO）    — 国内可达
+5. Google Scholar Patents            — 谷歌学术，国内常可通
+6. LLM 生成（DeepSeek 训练知识）      — 网络受限时的保底
+7. 本地真实专利缓存                   — 纯兜底
 
 每个专利返回统一结构：
 {
@@ -20,13 +23,15 @@
 """
 from __future__ import annotations
 
+import base64
+import html as html_mod
 import json
 import os
 import re
+import time
 import urllib.parse
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Iterable
 
 import httpx
 
@@ -39,6 +44,13 @@ BROWSER_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
 }
+
+# EPO OPS API — 免费注册 developers.epo.org 获取
+EPO_TOKEN_URL = "https://ops.epo.org/3.2/auth/accesstoken"
+EPO_SEARCH_URL = "https://ops.epo.org/3.2/rest-services/published-data/search/biblio/"
+
+# EPO token 缓存（20 分钟有效）
+_epo_token: tuple[str, float] | None = None  # (token, expires_at)
 
 
 @dataclass
@@ -258,7 +270,501 @@ def search_google_patents(
 
 
 # ---------------------------------------------------------------------------
-# 3. LLM 生成候选专利（网络受限时的主路径）
+# 3. Google Scholar 专利搜索（谷歌学术，国内常可通）
+# ---------------------------------------------------------------------------
+
+def search_google_scholar(
+    keywords: str, *, num: int = 20, timeout: float = 10.0
+) -> list[Patent]:
+    """从 Google Scholar 检索专利。
+
+    Google Scholar 在国内通常可访问（不同于其他 Google 服务）。
+    as_sdt=7 表示包含专利结果。
+    """
+    url = "https://scholar.google.com/scholar"
+    params = {
+        "q": keywords,
+        "as_sdt": "7,50",  # 7=include patents, 50=include citations
+        "num": str(min(num, 20)),
+        "hl": "en",
+    }
+    headers = {
+        **BROWSER_HEADERS,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    try:
+        with httpx.Client(headers=headers, timeout=timeout, follow_redirects=True) as client:
+            resp = client.get(url, params=params)
+            resp.raise_for_status()
+            html_text = resp.text
+    except Exception as e:
+        print(f"[google_scholar] 检索失败: {e}")
+        return []
+
+    return _parse_scholar_html(html_text, keywords)[:num]
+
+
+def _parse_scholar_html(html_text: str, keywords: str) -> list[Patent]:
+    """解析 Google Scholar 搜索结果 HTML，提取专利信息。"""
+    patents: list[Patent] = []
+
+    # Scholar 结果块：<div class="gs_r gs_or gs_scl"> ... </div>
+    # 每个块包含一个搜索结果
+    result_blocks = re.findall(
+        r'<div\s+class="gs_r[^"]*"\s*>(.*?)</div>\s*(?=<div\s+class="gs_r[^"]*"\s*>|</div>\s*</div>\s*<div\s+id="gs_ft")',
+        html_text, re.DOTALL,
+    )
+    if not result_blocks:
+        # 备选：匹配整个 <div class="gs_r"> ... </div></div> 模式
+        result_blocks = re.findall(
+            r'<div\s+class="gs_r\s+gs_or\s+gs_scl">(.*?)</div>\s*</div>\s*</div>',
+            html_text, re.DOTALL,
+        )
+
+    for block in result_blocks:
+        # 提取标题：<h3 class="gs_rt">...<a href="...">title</a>...</h3>
+        title_match = re.search(
+            r'<h3\s+class="gs_rt"[^>]*>.*?<a[^>]*>(.*?)</a>',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        if not title_match:
+            continue
+        title = _clean_html(title_match.group(1))
+
+        # 提取元信息（作者/专利号/日期）：<div class="gs_a">
+        meta_match = re.search(
+            r'<div\s+class="gs_a"[^>]*>(.*?)</div>',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        meta = _clean_html(meta_match.group(1)) if meta_match else ""
+
+        # 从 meta 中提取专利号（如 US11685841B2, CN114567890A）
+        patent_num = ""
+        country = ""
+        pat_match = re.search(r'([A-Z]{2})\s*(\d{6,12})\s*([AB]\d?|B\d?)', meta)
+        if pat_match:
+            country = pat_match.group(1)
+            patent_num = f"{pat_match.group(1)}{pat_match.group(2)}{pat_match.group(3)}"
+        else:
+            # 尝试更宽松的匹配
+            pat_match2 = re.search(r'([A-Z]{2})(\d{7,12})', meta)
+            if pat_match2:
+                country = pat_match2.group(1)
+                patent_num = f"{pat_match2.group(1)}{pat_match2.group(2)}"
+
+        # 提取片段：<div class="gs_rs">
+        snippet_match = re.search(
+            r'<div\s+class="gs_rs"[^>]*>(.*?)</div>',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        snippet = _clean_html(snippet_match.group(1)) if snippet_match else ""
+
+        # 提取链接
+        url_link = ""
+        link_match = re.search(
+            r'<h3\s+class="gs_rt"[^>]*>.*?<a\s+href="([^"]+)"',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        if link_match:
+            url_link = link_match.group(1)
+            # Scholar 链接可能是 /scholar?q=... 的相对路径
+            if url_link.startswith("/"):
+                url_link = f"https://scholar.google.com{url_link}"
+
+        if patent_num:
+            url_link = f"https://patents.google.com/patent/{patent_num}/en"
+
+        # 提取 assignee：从 meta 中取 "- " 之后的部分
+        assignee = ""
+        if " - " in meta:
+            assignee = meta.rsplit(" - ", 1)[-1].strip()
+            # 去掉末尾的专利号
+            assignee = re.sub(r'\s*[A-Z]{2}\d{6,12}[AB]\d?\s*$', '', assignee).strip()
+
+        # 提取日期
+        pub_date = ""
+        date_match = re.search(r'(\d{4})', meta)
+        if date_match:
+            pub_date = date_match.group(1)
+
+        if not patent_num:
+            # 没有专利号的结果跳过（可能是论文而非专利）
+            continue
+
+        patents.append(Patent(
+            patent_number=patent_num,
+            title=title[:300],
+            assignee=assignee[:200],
+            snippet=snippet[:500],
+            publication_date=pub_date,
+            source="google_scholar",
+            url=url_link,
+            country=country or patent_num[:2],
+        ))
+
+    return patents
+
+
+def _clean_html(html_str: str) -> str:
+    """去除 HTML 标签并解码实体。"""
+    text = re.sub(r'<[^>]+>', ' ', html_str)
+    text = html_mod.unescape(text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+# ---------------------------------------------------------------------------
+# 4. EPO OPS API（欧洲专利局 — 国内可达）
+# ---------------------------------------------------------------------------
+
+def _get_epo_token() -> str | None:
+    """获取 EPO OAuth2 access token（缓存 20 分钟）。"""
+    global _epo_token
+    key = os.environ.get("EPO_OPS_KEY", "")
+    secret = os.environ.get("EPO_OPS_SECRET", "")
+    if not key or not secret:
+        return None
+
+    now = time.time()
+    if _epo_token and _epo_token[1] > now + 60:
+        return _epo_token[0]
+
+    credentials = f"{key}:{secret}"
+    encoded = base64.b64encode(credentials.encode()).decode()
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(
+                EPO_TOKEN_URL,
+                data={"grant_type": "client_credentials"},
+                headers={
+                    "Authorization": f"Basic {encoded}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            token = data.get("access_token", "")
+            expires_in = data.get("expires_in", 1200)  # 默认 20 分钟
+            if token:
+                _epo_token = (token, now + expires_in)
+                return token
+    except Exception as e:
+        print(f"[epo_ops] 获取 token 失败: {e}")
+    return None
+
+
+def search_epo_ops(
+    keywords: str, *, num: int = 20, timeout: float = 12.0
+) -> list[Patent]:
+    """从 EPO Open Patent Services 检索全球专利。
+
+    需要免费注册 EPO OPS API key：https://developers.epo.org/
+    设置环境变量 EPO_OPS_KEY 和 EPO_OPS_SECRET。
+    未配置时静默跳过。
+    """
+    token = _get_epo_token()
+    if not token:
+        return []
+
+    # EPO OPS 使用 CQL (Contextual Query Language) 或简单文本
+    # 将关键词转为 CQL 全文搜索
+    cql = ' or '.join(f'txt="{w}"' for w in keywords.split() if len(w) > 1)
+    if not cql:
+        cql = f'txt="{keywords}"'
+
+    url = EPO_SEARCH_URL
+    params = {"q": cql, "Range": f"1-{min(num, 25)}"}
+
+    try:
+        with httpx.Client(
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/xml",
+                "User-Agent": BROWSER_HEADERS["User-Agent"],
+            },
+            timeout=timeout,
+        ) as client:
+            resp = client.get(url, params=params)
+            if resp.status_code == 403:
+                # Token 过期，清除缓存下次重试
+                global _epo_token
+                _epo_token = None
+                print("[epo_ops] token 过期，下次将刷新")
+                return []
+            resp.raise_for_status()
+            xml_text = resp.text
+    except Exception as e:
+        print(f"[epo_ops] 检索失败: {e}")
+        return []
+
+    return _parse_epo_search_xml(xml_text)
+
+
+def _parse_epo_search_xml(xml_text: str) -> list[Patent]:
+    """解析 EPO OPS search/biblio XML 响应，提取专利信息。"""
+    patents: list[Patent] = []
+
+    # 每个专利在一个 <ops:search-result> 或 <exchange-document> 块中
+    # EPO OPS 返回的 XML 结构较复杂，用正则提取关键字段
+
+    # 匹配每个专利文档块
+    doc_blocks = re.findall(
+        r'<ops:search-result\s[^>]*>(.*?)</ops:search-result>',
+        xml_text, re.DOTALL,
+    )
+    if not doc_blocks:
+        # 备选：匹配 exchange-document
+        doc_blocks = re.findall(
+            r'<exchange-document[^>]*>(.*?)</exchange-document>',
+            xml_text, re.DOTALL,
+        )
+
+    for block in doc_blocks:
+        # 提取 publication-reference 中的专利号
+        pub_ref = re.search(
+            r'<ops:publication-reference[^>]*>(.*?)</ops:publication-reference>',
+            block, re.DOTALL,
+        )
+        if not pub_ref:
+            pub_ref = re.search(
+                r'<publication-reference[^>]*>(.*?)</publication-reference>',
+                block, re.DOTALL,
+            )
+
+        country = ""
+        doc_number = ""
+        kind = ""
+        if pub_ref:
+            doc_id = pub_ref.group(1)
+            country_m = re.search(r'<country[^>]*>([A-Z]{2})</country>', doc_id)
+            number_m = re.search(r'<doc-number[^>]*>(\d+)</doc-number>', doc_id)
+            kind_m = re.search(r'<kind[^>]*>([AB]\d?)</kind>', doc_id)
+            country = country_m.group(1) if country_m else ""
+            doc_number = number_m.group(1) if number_m else ""
+            kind = kind_m.group(1) if kind_m else ""
+
+        patent_number = f"{country}{doc_number}{kind}" if country and doc_number else ""
+
+        # 提取标题（invention-title）
+        title = ""
+        title_m = re.search(
+            r'<invention-title[^>]*>(.*?)</invention-title>',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        if title_m:
+            title = _clean_xml(title_m.group(1))
+
+        # 提取摘要
+        abstract = ""
+        ab_m = re.search(
+            r'<abstract[^>]*>(.*?)</abstract>',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        if ab_m:
+            # 摘要里可能有 <p> 等标签
+            abstract = _clean_xml(ab_m.group(1))
+
+        # 提取申请人/受让人
+        assignee = ""
+        applicant_m = re.search(
+            r'<applicant[^>]*>.*?<applicant-name[^>]*>(.*?)</applicant-name>',
+            block, re.DOTALL | re.IGNORECASE,
+        )
+        if applicant_m:
+            assignee = _clean_xml(applicant_m.group(1))
+
+        # 提取公开日
+        pub_date = ""
+        date_m = re.search(
+            r'<publication-date[^>]*>(\d{4}-\d{2}-\d{2})</publication-date>',
+            block,
+        )
+        if date_m:
+            pub_date = date_m.group(1)
+        else:
+            # 备选：从 document-id 的 date 取
+            date_m2 = re.search(r'<date[^>]*>(\d{4})(\d{2})(\d{2})</date>', block)
+            if date_m2:
+                pub_date = f"{date_m2.group(1)}-{date_m2.group(2)}-{date_m2.group(3)}"
+
+        if not patent_number:
+            continue
+
+        url = f"https://worldwide.espacenet.com/patent/{patent_number}" if patent_number else ""
+
+        patents.append(Patent(
+            patent_number=patent_number,
+            title=title[:300],
+            assignee=assignee[:200],
+            snippet=abstract[:500],
+            publication_date=pub_date,
+            source="epo_ops",
+            url=url,
+            country=country,
+        ))
+
+    return patents
+
+
+def _clean_xml(xml_str: str) -> str:
+    """去除 XML/HTML 标签并解码实体。"""
+    text = re.sub(r'<[^>]+>', ' ', xml_str)
+    text = html_mod.unescape(text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+# ---------------------------------------------------------------------------
+# 5. WIPO Patentscope（联合国 WIPO — 国内可达）
+# ---------------------------------------------------------------------------
+
+def search_wipo_patentscope(
+    keywords: str, *, num: int = 20, timeout: float = 12.0
+) -> list[Patent]:
+    """从 WIPO Patentscope 检索国际专利。
+
+    WIPO 是联合国机构，国内通常可达。使用 JSF 表单提交搜索。
+    """
+    try:
+        with httpx.Client(
+            headers={
+                **BROWSER_HEADERS,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+            timeout=timeout,
+            follow_redirects=True,
+        ) as client:
+            # Step 1: GET 搜索页面，获取 JSF ViewState 和 cookies
+            search_url = "https://patentscope.wipo.int/search/en/search.jsf"
+            resp = client.get(search_url)
+            resp.raise_for_status()
+            html_page = resp.text
+
+            # 提取 javax.faces.ViewState
+            viewstate_m = re.search(
+                r'name="javax\.faces\.ViewState"\s+id="[^"]*"\s+value="([^"]+)"',
+                html_page,
+            )
+            if not viewstate_m:
+                # 新版可能使用不同的 id
+                viewstate_m = re.search(
+                    r'<input[^>]+name="javax\.faces\.ViewState"[^>]+value="([^"]+)"',
+                    html_page,
+                )
+            if not viewstate_m:
+                print("[wipo] 未找到 ViewState")
+                return []
+            viewstate = viewstate_m.group(1)
+
+            # Step 2: POST 搜索表单
+            form_data = {
+                "searchForm": "searchForm",
+                "searchForm:searchServer": "searchForm:searchServer",
+                "searchForm:queryStr": keywords,
+                "searchForm:commandSearch": "Search",
+                "javax.faces.ViewState": viewstate,
+                "javax.faces.source": "searchForm:commandSearch",
+            }
+
+            resp2 = client.post(
+                search_url,
+                data=form_data,
+                headers={
+                    **BROWSER_HEADERS,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Referer": search_url,
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                },
+            )
+            resp2.raise_for_status()
+            result_html = resp2.text
+    except Exception as e:
+        print(f"[wipo] 检索失败: {e}")
+        return []
+
+    return _parse_wipo_html(result_html)[:num]
+
+
+def _parse_wipo_html(html_text: str) -> list[Patent]:
+    """解析 WIPO Patentscope 搜索结果 HTML。"""
+    patents: list[Patent] = []
+
+    # WIPO 结果行可能包含在 <table> 中
+    # 匹配结果行中的数据
+    # 常见模式：<a class="resultNumber"> 包含专利号链接
+
+    # 方式 1：匹配专利号链接（如 WO2023123456）
+    patent_links = re.findall(
+        r'<a[^>]*href="[^"]*/(WO|US|EP|CN|JP|KR)(\d{6,12})[^"]*"[^>]*>(.*?)</a>',
+        html_text, re.DOTALL | re.IGNORECASE,
+    )
+
+    seen: set[str] = set()
+    for country, num, title_text in patent_links:
+        patent_num = f"{country}{num}"
+        if patent_num in seen:
+            continue
+        seen.add(patent_num)
+        title = _clean_html(title_text)
+        if len(title) < 3:
+            title = patent_num
+
+        patents.append(Patent(
+            patent_number=patent_num,
+            title=title[:300],
+            assignee="",
+            snippet="",
+            publication_date="",
+            source="wipo_patentscope",
+            url=f"https://patentscope.wipo.int/search/en/detail.jsf?docId={patent_num}",
+            country=country,
+        ))
+
+    # 方式 2：如果方式 1 没找到，尝试匹配 table 行
+    if not patents:
+        rows = re.findall(
+            r'<tr[^>]*class="[^"]*result[^"]*"[^>]*>(.*?)</tr>',
+            html_text, re.DOTALL,
+        )
+        for row in rows:
+            # 提取所有文本
+            cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.DOTALL)
+            texts = [_clean_html(c) for c in cells if _clean_html(c)]
+
+            if not texts:
+                continue
+
+            # 第一个非空文本通常是专利号
+            patent_num = ""
+            for t in texts:
+                pat_m = re.match(r'([A-Z]{2}\d{6,12}[AB]\d?)', t)
+                if pat_m:
+                    patent_num = pat_m.group(1)
+                    break
+
+            if not patent_num:
+                continue
+
+            title = texts[1] if len(texts) > 1 else ""
+            pub_date = texts[2] if len(texts) > 2 else ""
+            assignee = texts[3] if len(texts) > 3 else ""
+
+            patents.append(Patent(
+                patent_number=patent_num,
+                title=title[:300],
+                assignee=assignee[:200],
+                snippet="",
+                publication_date=pub_date,
+                source="wipo_patentscope",
+                url=f"https://patentscope.wipo.int/search/en/detail.jsf?docId={patent_num}",
+                country=patent_num[:2],
+            ))
+
+    return patents
+
+
+# ---------------------------------------------------------------------------
+# 6. LLM 生成候选专利（当所有外部 API 均不可达时的保底）
 # ---------------------------------------------------------------------------
 
 def search_via_llm(keywords: str, *, num: int = 15) -> list[Patent]:
@@ -329,7 +835,7 @@ def search_via_llm(keywords: str, *, num: int = 15) -> list[Patent]:
 
 
 # ---------------------------------------------------------------------------
-# 4. 中国专利回退
+# 7. 中国专利回退
 # ---------------------------------------------------------------------------
 
 def search_cn_patents(keywords: str, *, num: int = 20, timeout: float = 12.0) -> list[Patent]:
@@ -339,12 +845,17 @@ def search_cn_patents(keywords: str, *, num: int = 20, timeout: float = 12.0) ->
 
 
 # ---------------------------------------------------------------------------
-# 5. 专利详情抓取
+# 8. 专利详情抓取
 # ---------------------------------------------------------------------------
 
 def fetch_patent_detail(patent_number: str, *, timeout: float = 12.0) -> str:
-    """抓取单篇专利的全文文本。尝试 Google Patents 单篇页。"""
+    """抓取单篇专利的全文文本。
+
+    优先 Google Patents，不可达时回退到 EPO Espacenet。
+    """
     num_clean = patent_number.strip()
+
+    # 路径 1：Google Patents
     url = f"https://patents.google.com/patent/{num_clean}/en"
     try:
         with httpx.Client(
@@ -353,19 +864,70 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 12.0) -> str:
         ) as client:
             resp = client.get(url)
             resp.raise_for_status()
-            html = resp.text
+            html_text = resp.text
+            detail = _extract_patent_detail_from_html(html_text)
+            if detail:
+                return detail
     except Exception as e:
-        print(f"[detail] 抓取 {num_clean} 失败: {e}")
-        return ""
+        print(f"[detail] Google Patents 抓取 {num_clean} 失败: {e}")
 
+    # 路径 2：EPO Espacenet（国内可达）
+    epo_url = f"https://worldwide.espacenet.com/patent/search/family/{num_clean}/en"
+    try:
+        with httpx.Client(
+            headers={**BROWSER_HEADERS, "Referer": "https://worldwide.espacenet.com/"},
+            timeout=timeout,
+        ) as client:
+            resp = client.get(epo_url)
+            if resp.status_code >= 400:
+                # 尝试不带 family 的 URL
+                epo_url2 = f"https://worldwide.espacenet.com/patent/{num_clean}"
+                resp = client.get(epo_url2)
+            resp.raise_for_status()
+            html_text = resp.text
+
+            # Espacenet 可能把数据内嵌在 <script> 中（SSR/SSG）
+            detail = ""
+            # 尝试提取 JSON-LD 或 __NEXT_DATA__ 中的描述
+            desc_m = re.search(
+                r'<meta\s+name="description"\s+content="([^"]+)"',
+                html_text, re.IGNORECASE,
+            )
+            if desc_m:
+                detail += f"[Abstract] {desc_m.group(1)}\n\n"
+
+            # 尝试从 <script type="application/ld+json"> 提取
+            ld_m = re.search(
+                r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
+                html_text, re.DOTALL,
+            )
+            if ld_m:
+                try:
+                    ld_data = json.loads(ld_m.group(1))
+                    desc = ld_data.get("description", "")
+                    if desc:
+                        detail += f"[Description] {desc[:5000]}\n\n"
+                except json.JSONDecodeError:
+                    pass
+
+            if detail:
+                return detail
+    except Exception as e:
+        print(f"[detail] EPO Espacenet 抓取 {num_clean} 失败: {e}")
+
+    return ""
+
+
+def _extract_patent_detail_from_html(html_text: str) -> str:
+    """从专利 HTML 页面提取详情文本（Google Patents / Espacenet 通用）。"""
     text_parts: list[str] = []
-    desc = re.search(r'<meta name="description" content="([^"]+)"', html, re.IGNORECASE)
+    desc = re.search(r'<meta name="description" content="([^"]+)"', html_text, re.IGNORECASE)
     if desc:
         text_parts.append(f"[Abstract] {desc.group(1)}")
 
     claims = re.search(
         r'<section[^>]*itemprop="claims"[^>]*>(.*?)</section>',
-        html, re.IGNORECASE | re.DOTALL,
+        html_text, re.IGNORECASE | re.DOTALL,
     )
     if claims:
         claims_text = re.sub(r"<[^>]+>", " ", claims.group(1))
@@ -374,7 +936,7 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 12.0) -> str:
 
     desc2 = re.search(
         r'<section[^>]*itemprop="description"[^>]*>(.*?)</section>',
-        html, re.IGNORECASE | re.DOTALL,
+        html_text, re.IGNORECASE | re.DOTALL,
     )
     if desc2:
         desc_text = re.sub(r"<[^>]+>", " ", desc2.group(1))
@@ -385,85 +947,111 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 12.0) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 6. 统一入口：多级回退
+# 9. 统一入口：多级回退
 # ---------------------------------------------------------------------------
 
 def search_patents_with_fallback(
     keywords: str, *, num: int = 20, prefer_us: bool = True
 ) -> list[Patent]:
-    """多级回退检索。
+    """多级回退检索 — 6 级自动切换，优先 Google，被墙自动跳下一级。
 
-    普通场景（网络可达）：
-      1. USPTO PatentsView（US 专利）— 若 >= 5 条返回
-      2. Google Patents（US 优先，扩全球）— 若 >= 5 条返回
-         如果关键词含中文且 Google 返回 < 5 条，自动翻译成英文重试
-      3. 中国专利 — Google Patents 全球结果中过滤 CN
-      4. LLM 生成（DeepSeek 训练知识）— 默认关闭，需 PATENTS_ALLOW_LLM_FALLBACK=1
-
-    网络完全受限时的保底（如所有外部 API 均不通）：
-      5. 本地真实专利缓存 — 纯保底，仅在以上全失败时启用
+    回退链（每级拿 >= 5 条结果就提前返回）：
+      1. Google Patents xhr/query（US first → global）
+         └─ 含中文关键词 → 自动翻译英文重试
+      2. USPTO PatentsView API（美国政府，国内可能可达）
+      3. EPO OPS API（欧洲专利局，国内可达，需免费注册）
+      4. WIPO Patentscope（联合国 WIPO，国内可达）
+      5. Google Scholar Patents（谷歌学术，国内常可通）
+      6. 中国专利过滤（via Google Patents，如果还能通）
+      7. LLM 生成（需 PATENTS_ALLOW_LLM_FALLBACK=1）
+      8. 本地真实专利缓存（纯保底）
     """
-    us_pats: list[Patent] = []
-    gp_us: list[Patent] = []
-    gp_global: list[Patent] = []
-    llm_pats: list[Patent] = []
+    # 将收集结果和去重合并的逻辑提取为闭包
+    all_candidates: dict[str, Patent] = {}  # patent_number → Patent
 
-    # 第一级：USPTO PatentsView
-    if prefer_us:
-        us_pats = search_patentsview(keywords, num=num)
-        if len(us_pats) >= 5:
-            return us_pats[:num]
+    def collect(pats: list[Patent], label: str) -> bool:
+        """添加候选专利，返回是否 >= num 条不同的结果"""
+        for p in pats:
+            if p.patent_number and p.patent_number not in all_candidates:
+                all_candidates[p.patent_number] = p
+        if len(all_candidates) >= 5:
+            print(f"[fallback] {label} 满足阈值 ({len(all_candidates)} 条)，返回")
+            return True
+        return False
 
-    # 第二级：Google Patents 先用原始关键词
-    gp_us = search_google_patents(keywords, num=num, country="US")
-    if len(gp_us) >= 5:
-        return gp_us[:num]
-
-    # 如果原始关键词含中文且 Google 返回不足，自动翻译成英文重试
+    # ---- 处理翻译 ----
+    en_kw = keywords
     if _HAS_CHINESE_RE.search(keywords):
         en_kw = _translate_keywords(keywords)
-        if en_kw and en_kw != keywords:
-            print(f"[fallback] 中文关键词返回不足，尝试英文翻译: \"{en_kw}\"")
-            gp_us_en = search_google_patents(en_kw, num=num, country="US")
-            if len(gp_us_en) >= 5:
-                return gp_us_en[:num]
-            gp_global_en = search_google_patents(en_kw, num=num, country="")
-            if len(gp_global_en) >= 5:
-                return gp_global_en[:num]
+        if en_kw == keywords:
+            en_kw = keywords  # 翻译失败，用原文
 
-    gp_global = search_google_patents(keywords, num=num, country="")
-    if len(gp_global) >= 5:
-        return gp_global[:num]
+    # ---- 第 1 级：Google Patents（最快，US 优先） ----
+    gp_us = search_google_patents(en_kw if en_kw != keywords else keywords, num=num, country="US")
+    if collect(gp_us, "Google Patents US"):
+        return list(all_candidates.values())[:num]
 
-    # 第三级：中国专利（Google Patents 全球中过滤 CN）
+    gp_global = search_google_patents(en_kw if en_kw != keywords else keywords, num=num, country="")
+    if collect(gp_global, "Google Patents Global"):
+        return list(all_candidates.values())[:num]
+
+    # 如果中文翻译与原文不同，也用原文搜一遍
+    if en_kw != keywords:
+        gp_us_cn = search_google_patents(keywords, num=num, country="US")
+        if collect(gp_us_cn, "Google Patents US (CN)"):
+            return list(all_candidates.values())[:num]
+        gp_global_cn = search_google_patents(keywords, num=num, country="")
+        if collect(gp_global_cn, "Google Patents Global (CN)"):
+            return list(all_candidates.values())[:num]
+
+    if not gp_us and not gp_global:
+        print("[fallback] Google Patents 不可达（被墙/503），切换到备选源")
+
+    # ---- 第 2 级：USPTO PatentsView ----
+    if prefer_us:
+        us_pats = search_patentsview(en_kw, num=num)
+        if collect(us_pats, "USPTO PatentsView"):
+            return list(all_candidates.values())[:num]
+
+    # ---- 第 3 级：EPO OPS（欧洲专利局） ----
+    epo_pats = search_epo_ops(en_kw, num=num)
+    if collect(epo_pats, "EPO OPS"):
+        return list(all_candidates.values())[:num]
+
+    # ---- 第 4 级：WIPO Patentscope（联合国） ----
+    wipo_pats = search_wipo_patentscope(en_kw, num=num)
+    if collect(wipo_pats, "WIPO Patentscope"):
+        return list(all_candidates.values())[:num]
+
+    # ---- 第 5 级：Google Scholar（谷歌学术） ----
+    scholar_pats = search_google_scholar(en_kw, num=num)
+    if collect(scholar_pats, "Google Scholar"):
+        return list(all_candidates.values())[:num]
+
+    # ---- 第 6 级：中国专利过滤 ----
     cn_pats = search_cn_patents(keywords, num=num)
-    if cn_pats:
-        return cn_pats[:num]
+    if collect(cn_pats, "CN Patents"):
+        return list(all_candidates.values())[:num]
 
-    # 第四级：LLM 生成 —— 默认关闭，防止编造专利。
-    # 仅当显式设置 PATENTS_ALLOW_LLM_FALLBACK=1 时启用。
+    # ---- 第 7 级：LLM 生成 ----
     if os.environ.get("PATENTS_ALLOW_LLM_FALLBACK", "0") == "1":
         llm_pats = search_via_llm(keywords, num=num)
-        if len(llm_pats) >= 5:
-            return llm_pats[:num]
+        if collect(llm_pats, "LLM Generated"):
+            return list(all_candidates.values())[:num]
 
-    # 第五级：本地真实专利缓存（纯保底，仅在前四级全失败时启用）
+    # ---- 第 8 级：本地真实专利缓存 ----
     local_pats = search_local_cache(keywords)
-    if local_pats:
-        return local_pats[:num]
+    if collect(local_pats, "Local Cache"):
+        return list(all_candidates.values())[:num]
 
-    # 全失败：合并已有的
-    seen: set[str] = set()
-    merged: list[Patent] = []
-    for p in us_pats + gp_us + gp_global + llm_pats:
-        if p.patent_number and p.patent_number not in seen:
-            seen.add(p.patent_number)
-            merged.append(p)
-    return merged[:num]
+    # 全失败：返回已收集到的（即使 < 5 条）
+    result = list(all_candidates.values())
+    print(f"[fallback] 所有源已尝试，最终返回 {len(result)} 条")
+    return result[:num]
 
 
 # ---------------------------------------------------------------------------
-# 7. 多策略搜索合并（VOC 拆解后逐角度搜索，合并去重）
+# 10. 多策略搜索合并（VOC 拆解后逐角度搜索，合并去重）
 # ---------------------------------------------------------------------------
 
 def search_by_strategies(
