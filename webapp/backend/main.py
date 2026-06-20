@@ -230,8 +230,9 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
         # 用独立局部变量承载（可能被详情补全替换），避免对闭包变量赋值导致 UnboundLocalError
         working_patents = patents
 
-        # 逐篇抓取专利详情（每篇 5s 超时；连续 3 篇失败则跳过剩余）
+        # 逐篇抓取专利详情（每篇 8s 超时；连续 3 篇失败则跳过剩余）
         if req.fetch_details:
+            print(f"[generate] 开始抓取 {len(patents)} 篇专利详情...")
             enriched: list[dict] = []
             consecutive_failures = 0
             fetched_count = 0
@@ -239,23 +240,33 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
                 num = p.get("patent_number", "")
                 detail = ""
                 if num:
-                    detail = fetch_patent_detail(num, timeout=8.0)
+                    try:
+                        detail = fetch_patent_detail(num, timeout=8.0)
+                    except Exception as e:
+                        print(f"[generate] 抓取 {num} 异常: {e}")
+                        detail = ""
                 if detail:
                     p = {**p, "detail_text": detail}
                     fetched_count += 1
                     consecutive_failures = 0
+                    print(f"[generate] OK {i}/{len(patents)} {num}: {len(detail)} chars")
                 else:
                     consecutive_failures += 1
+                    print(f"[generate] FAIL {i}/{len(patents)} {num}: empty (fail {consecutive_failures}/3)")
                 enriched.append(p)
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail', 'index': i, 'total': len(patents), 'patent_number': num, 'ok': bool(detail)})}\n\n"
                 # 连续 3 篇失败 → 数据源不可达，跳过剩余
                 if consecutive_failures >= 3:
+                    print(f"[generate] 连续 {consecutive_failures} 篇失败，跳过剩余 {len(patents) - i} 篇")
                     yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail_skipped', 'reason': f'连续 {consecutive_failures} 篇抓取失败，数据源不可达，跳过剩余 {len(patents) - i} 篇，已抓取 {fetched_count} 篇'})}\n\n"
                     # 剩余专利不加 detail_text，直接追加
                     for p2 in patents[i:]:
                         enriched.append(p2)
                     break
+            print(f"[generate] 详情抓取完成: {fetched_count}/{len(patents)} 篇成功, 总 enriched 专利 {len(enriched)} 篇")
             working_patents = enriched
+        else:
+            print(f"[generate] fetch_details=False, 跳过详情抓取")
 
         user_prompt = build_user_prompt(req.voc, working_patents)
 

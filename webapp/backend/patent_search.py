@@ -867,9 +867,12 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
             html_text = resp.text
             detail = _extract_patent_detail_from_html(html_text)
             if detail:
+                print(f"[detail] OK Google Patents {num_clean}: {len(html_text)//1024}KB HTML -> {len(detail)} chars")
                 return detail
+            else:
+                print(f"[detail] WARN Google Patents {num_clean}: {len(html_text)//1024}KB HTML but parser empty")
     except Exception as e:
-        print(f"[detail] Google Patents 抓取 {num_clean} 失败: {e}")
+        print(f"[detail] FAIL Google Patents {num_clean}: {type(e).__name__}: {e}")
 
     # 路径 2：EPO Espacenet（国内可达）
     epo_url = f"https://worldwide.espacenet.com/patent/search/family/{num_clean}/en"
@@ -880,41 +883,20 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
         ) as client:
             resp = client.get(epo_url)
             if resp.status_code >= 400:
-                # 尝试不带 family 的 URL
                 epo_url2 = f"https://worldwide.espacenet.com/patent/{num_clean}"
                 resp = client.get(epo_url2)
             resp.raise_for_status()
             html_text = resp.text
-
-            # Espacenet 可能把数据内嵌在 <script> 中（SSR/SSG）
-            detail = ""
-            # 尝试提取 JSON-LD 或 __NEXT_DATA__ 中的描述
-            desc_m = re.search(
-                r'<meta\s+name="description"\s+content="([^"]+)"',
-                html_text, re.IGNORECASE,
-            )
-            if desc_m:
-                detail += f"[Abstract] {desc_m.group(1)}\n\n"
-
-            # 尝试从 <script type="application/ld+json"> 提取
-            ld_m = re.search(
-                r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
-                html_text, re.DOTALL,
-            )
-            if ld_m:
-                try:
-                    ld_data = json.loads(ld_m.group(1))
-                    desc = ld_data.get("description", "")
-                    if desc:
-                        detail += f"[Description] {desc[:5000]}\n\n"
-                except json.JSONDecodeError:
-                    pass
-
+            detail = _extract_patent_detail_from_html(html_text)
             if detail:
+                print(f"[detail] OK EPO Espacenet {num_clean}: {len(detail)} chars")
                 return detail
+            else:
+                print(f"[detail] WARN EPO Espacenet {num_clean}: HTML parsed but empty")
     except Exception as e:
-        print(f"[detail] EPO Espacenet 抓取 {num_clean} 失败: {e}")
+        print(f"[detail] FAIL EPO Espacenet {num_clean}: {type(e).__name__}: {e}")
 
+    print(f"[detail] FAIL ALL {num_clean}: all sources failed")
     return ""
 
 
