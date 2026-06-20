@@ -61,6 +61,12 @@ Traditional: search (2 days) → read & screen (3 days) → extract & analyze (2
 
 ---
 
+---
+
+> ⚠️ **Human in the Loop.** FORGE AI is a decision-support engine — not a decision-maker. It finds evidence, extracts relationships, and recommends experiments. But an experienced engineer still decides which patents matter, which X variables to prioritize, and whether a DOE makes practical sense. The AI accelerates the grunt work. The chemist owns the judgment.
+
+---
+
 ## What FORGE AI Actually Does
 
 ### 🌍 Global Patent Intelligence — No VPN Required
@@ -143,6 +149,44 @@ FORGE AI is built for the full research spectrum:
 A university lab discovers a novel polymer backbone. An R&D engineer needs to know if it scales. FORGE AI connects the dots — from synthesis conditions in an academic paper to manufacturing feasibility in a pilot plant.
 
 This isn't hypothetical. The Ti-alloy bone implant example above runs end-to-end: fundamental metallurgy (academic) → competitive AM processing (industrial) → FDA-clearable DOE (translational).
+
+---
+
+---
+
+> 💡 **Input Determines Output.** A vague VOC — *"I need a better coating"* — will produce vague results. A precise VOC — *"I need a UV-curable hard coat for polycarbonate with 9H pencil hardness, >90% transparency at 550 nm, and <2% haze after 1000 Taber cycles"* — gives the AI something to reason about. State your material, your target properties (with numbers), your constraints, and your application. The more you put in, the more you get out.
+
+---
+
+## 🔗 Integration: FORGE AI ↔ SPC Platform
+
+FORGE AI is one half of a larger system. The other half is the **[SPC Platform](https://github.com/newbison/spc-batch-monitor)** — a statistical process control and DOE analysis engine built for chemical batch coating processes.
+
+Together they form a **closed-loop R&D system**:
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  ① VOC ──▶ FORGE AI ──▶ Initial DOE                            │
+  │       (patent search, X-Y extraction, white space mapping)      │
+  │                                                                 │
+  │  ② Run experiments ──▶ SPC Platform ──▶ Statistical analysis    │
+  │       (main effects, response surfaces, desirability opt.)      │
+  │                                                                 │
+  │  ③ SPC results ──▶ FORGE AI ──▶ 2nd-round DOE                  │
+  │       (AI interprets your data, refines the model)              │
+  │                                                                 │
+  │  ④ Loop. Knowledge compounds across projects.                   │
+  │                                                                 │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+| Repo | Role | Tech |
+|------|------|------|
+| **[FORGE AI](https://github.com/newbison/AI_CHEMIST)** | VOC → Patent Intelligence → Initial DOE → Report | DeepSeek + FastAPI + React |
+| **[SPC Platform](https://github.com/newbison/spc-batch-monitor)** | SPC Charts → DOE Analysis → Desirability Optimization → Results | Streamlit + Plotly + NumPy/SciPy |
+
+> **How they connect**: FORGE AI tells you *what to test and why*. You run the experiment. The SPC Platform tells you *what happened* — main effects, response surfaces, capability indices, desirability scores. Feed those results back into FORGE AI, and it designs the next experiment. This is the loop that turns a literature review into a learning system.
 
 ---
 
