@@ -355,11 +355,18 @@ def _extract_keywords(voc: str) -> str:
 # 本地开发请用 Vite dev server + proxy，不要启用此模式
 # ---------------------------------------------------------------------------
 if os.environ.get("SERVE_STATIC", "0") == "1":
-    FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    # 优先用环境变量指定的路径（Docker/生产环境）
+    dist_env = os.environ.get("FRONTEND_DIST", "")
+    if dist_env:
+        FRONTEND_DIST = Path(dist_env)
+    else:
+        # 本地开发回退：从 main.py 位置推算（..\..\frontend\dist）
+        FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
     if FRONTEND_DIST.is_dir():
+        print(f"[static] Mounting frontend from {FRONTEND_DIST}")
         app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
     else:
-        print("[static] 生产模式但未找到 dist/，请先在前端目录执行 npm run build")
+        print(f"[static] WARNING: SERVE_STATIC=1 but dist not found at {FRONTEND_DIST}")
 
 
 if __name__ == "__main__":
