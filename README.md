@@ -14,7 +14,7 @@
 <h1 align="center">⚒️ FORGE AI</h1>
 <h3 align="center">AI-Native R&D for the World's Most Ambitious Materials Teams</h3>
 <h4 align="center" style="color:#8895A8;font-weight:400">
-  From university labs to Fortune 500 R&D floors — BASF, DOW, 3M, and beyond.
+  From university labs to R&D floors at the world's most ambitious materials companies.
 </h4>
 
 <p align="center">
@@ -27,13 +27,13 @@
 
 ## This Is Not a Literature Tool. This Is AI-Native R&D.
 
-Whether you are a **university researcher** chasing a fundamental discovery or a **Fortune 500 R&D engineer** racing a competitor to market — the bottleneck is the same:
+Whether you are a **university researcher** chasing a fundamental discovery or an **industrial R&D engineer** racing a competitor to market — the bottleneck is the same:
 
 > *You spend 80% of your time searching, reading, and organizing. 20% on actual science.*
 
-At BASF, a polymer chemist screens 50 patents before designing a new formulation. At 3M, an adhesive engineer spends a week mapping the competitive landscape. At DOW, a coatings scientist runs a DOE based on intuition because the literature is too vast to digest.
+A polymer chemist screens 50 patents before designing a new formulation. An adhesive engineer spends a week mapping the competitive landscape. A coatings scientist runs a DOE based on intuition because the literature is too vast to digest — whether they work at a specialty chemical startup, a mid-size manufacturer, or a global materials corporation.
 
-**This is not a search problem. This is a reasoning problem. FORGE AI solves it.**
+**This is not a search problem. This is a reasoning problem. FORGE AI solves it — for any materials company, at any scale.**
 
 Traditional: search (2 days) → read & screen (3 days) → extract & analyze (2 days) → write report (1 day) = **8 days. Nothing reusable.**
 
@@ -133,14 +133,14 @@ FORGE AI is built for the full research spectrum:
 - Generate DOE hypotheses grounded in real evidence, not hunches
 - Spend your postdoc hours on experiments, not on reading 50 papers
 
-**For Fortune 500 R&D engineers (BASF, DOW, 3M, and peers):**
+**For industrial R&D engineers at materials companies of any size:**
 - Map the global competitive landscape before your next formulation meeting
 - Find white space your competitors missed — patents they didn't file, compositions they didn't try
 - Justify your DOE to your R&D director with patent evidence, not intuition
 - Compound knowledge across projects: every formulation feeds the next
 
 **The bridge between them:**
-A university lab discovers a novel polymer backbone. A DOW engineer needs to know if it scales. FORGE AI connects the dots — from synthesis conditions in an academic paper to manufacturing feasibility in a BASF pilot plant.
+A university lab discovers a novel polymer backbone. An R&D engineer needs to know if it scales. FORGE AI connects the dots — from synthesis conditions in an academic paper to manufacturing feasibility in a pilot plant.
 
 This isn't hypothetical. The Ti-alloy bone implant example above runs end-to-end: fundamental metallurgy (academic) → competitive AM processing (industrial) → FDA-clearable DOE (translational).
 
@@ -277,5 +277,5 @@ MIT © 2025 FORGE AI
 ---
 
 <p align="center">
-  <sub>FORGE AI — From university labs to BASF, DOW, and 3M R&D floors. Built by a chemist.</sub>
+  <sub>FORGE AI — For every materials company, from startup to global enterprise. Built by a chemist.</sub>
 </p>

@@ -12,52 +12,61 @@
 </p>
 
 <h1 align="center">⚒️ FORGE AI</h1>
-<h3 align="center">The AI-Native R&D Platform — Built by a Chemist, for Materials Scientists & Chemists</h3>
+<h3 align="center">AI 原生研发平台 — 为全球最具雄心的材料团队而建</h3>
+<h4 align="center" style="color:#8895A8;font-weight:400">
+  从大学实验室到材料企业的研发中心，适用于任何规模的材料公司。
+</h4>
 
 <p align="center">
-  <b>输入一句 VOC → 全球专利检索 → AI 逐篇分析 → 一份完整的 R&D 智能报告</b><br>
-  包含 X-Y 关系矩阵、矛盾矩阵、DOE 实验设计、风险筛查、组合复制指南<br>
-  一键导出 Markdown · Word · <b>AI 设计的 PPT</b>
+  <b>一个研究问题进去 → 一份完整 R&D 报告出来。几分钟，而不是几天。</b><br>
+  X-Y 关系矩阵 · 矛盾图谱 · DOE 实验设计 · 风险筛查 · 组合复制<br>
+  导出 Markdown · Word · <b>AI 设计 PPT</b>
 </p>
 
 ---
 
-## 🎯 为什么你需要 FORGE AI？
+## 这不是文献工具。这是 AI 原生研发。
 
-作为材料科学家或研发工程师，你面对这样的困境：
+无论你是追逐基础发现的**大学研究员**，还是与竞争对手抢市场的**企业 R&D 工程师**——瓶颈是一样的：
 
-> *"客户想要一种在电解液中长期浸泡不脱落的胶带。市面上有哪些相关专利？它们的方案是什么？哪些可以借鉴？我应该如何设计实验来验证？"*
+> *你 80% 的时间花在搜索、阅读和整理上。只有 20% 用于真正的科学。*
 
-传统流程：手动搜索专利（2天）→ 阅读筛选（3天）→ 整理分析（2天）→ 写报告（1天）= **8 天**
+一位高分子化学家在设计新配方前需要筛选 50 篇专利。一位胶粘剂工程师花一周时间绘制竞争格局。一位涂料科学家凭直觉跑 DOE，因为文献太多看不完——无论他们是在特种化学品创业公司、中型制造商还是全球材料巨头工作。
 
-**FORGE AI：5 分钟。**
+**这不是搜索问题。这是推理问题。FORGE AI 解决它——适用于任何材料公司，任何规模。**
+
+传统方式：搜索专利（2 天）→ 阅读筛选（3 天）→ 提取分析（2 天）→ 写报告（1 天）= **8 天。不能复用。**
+
+**FORGE AI：5 分钟。知识跨项目累积。**
 
 ```
   ┌──────────┐     ┌─────────────────┐     ┌──────────────────┐     ┌─────────────┐
   │          │     │                 │     │                  │     │             │
-  │   VOC    │ ──▶ │  全球专利检索    │ ──▶ │  AI 逐篇分析      │ ──▶ │  智能报告    │
-  │ 客户需求  │     │  6 源自动回退   │     │  抽取 X-Y 关系    │     │  .md .docx  │
-  │          │     │                 │     │                  │     │  .pptx      │
+  │  VOC     │ ──▶ │  AI 翻译为      │ ──▶ │  AI 调研         │ ──▶ │  完整       │
+  │  输入    │     │  CTQ + 测试方法  │     │  竞品 + 空白区域 │     │  R&D 报告   │
+  │          │     │                 │     │                  │     │             │
   └──────────┘     └─────────────────┘     └──────────────────┘     └─────────────┘
-                         │                          │
-                         ▼                          ▼
-              ┌─────────────────┐     ┌──────────────────────────┐
-              │ Google Patents  │     │ 每篇专利提取 10K+ 字符    │
-              │ USPTO · EPO     │     │ Abstract · Claims · Desc │
-              │ WIPO · Scholar  │     │ 发明人 · 受让人 · 层级标注 │
-              └─────────────────┘     └──────────────────────────┘
+                                                   │
+                         ┌─────────────────────────┘
+                         ▼
+              ┌──────────────────┐     ┌──────────────────┐
+              │  AI 设计         │     │  你来跑          │
+              │  第 1 & 2 轮 DOE │ ──▶ │  实验            │
+              └──────────────────┘     └──────────────────┘
+                         ▲                        │
+                         └────────────────────────┘
+                              AI 分析你的数据。
+                              模型更新。学习累积。
 ```
 
 ---
 
-## ✨ 功能亮点
+## FORGE AI 实际做什么
 
-### 🌍 全球专利检索 — 无需科学上网
-
-6 级自动回退，Google 被墙时无缝切换到 EPO / WIPO / Google Scholar
+### 🌍 全球专利情报 — 无需科学上网
 
 | 数据源 | 覆盖范围 | 国内可达 |
-|--------|----------|----------|
+|--------|----------|:--------:|
 | Google Patents | 全球 | ⚠️ 需 VPN |
 | USPTO PatentsView | 美国 | ✅ |
 | EPO Espacenet | 欧洲/全球 | ✅ |
@@ -65,44 +74,73 @@
 | Google Scholar | 全球学术 | ✅ 常可通 |
 | DeepSeek LLM | 训练知识 | ✅ 永远可用 |
 
-每次搜索 20-50 篇，全选或精选前 8 篇。**不是编造的专利号**，每篇都有可追溯的原文链接。
+6 级自动回退。每篇专利号都是真实的，可追溯到原始来源。
 
-### 🧬 深度专利分析 — 不只是摘要
+### 🧬 深度专利分析 — 完整文本，不只是摘要
 
-逐篇抓取专利 **完整文本**（Abstract + Claims + Description，每篇 ~10,000 字符）：
+每篇专利提取 Abstract + Claims + Description — **10,000+ 字符/篇**。
 
-- **X-Y 关系抽取**：从专利中提取 材料/组分/工艺参数 (X) → 性能/效果 (Y) 的因果关系
-- **6 级证据层级**：区分 [事实] 专利披露 / [抽取] AI 规范化 / [推断] AI 推断 / [假设] R&D 假设 / [DOE] 实验建议
-- **跨专利横向比较**：不同专利的技术方案差异、性能优劣、适用场景对比
-- **矛盾矩阵**：识别专利中隐含的技术矛盾（如 粘接力 ↑ vs 耐电解液 ↓）
+- **X-Y 关系抽取**：梳理 材料/组分/工艺参数 (X) → 性能/效果 (Y) 的因果链
+- **6 级证据层级**：[事实] 专利披露 / [抽取] AI 规范化 / [推断] AI 推断 / [假设] R&D 假设 / [DOE] 实验建议
+- **跨专利横向比较**：技术方案差异、性能基准、适用场景
+- **矛盾矩阵**：识别内在的技术矛盾（如 粘接力↑ vs 耐电解液↓）
 
-### 📊 完整 R&D 报告 — 9 步工作流
+### 🎯 竞品情报与空白区域分析
+
+- **竞品分析**：谁在做这件事？做成了什么？
+- **基准对比**：所有已发现方案的性能数据对比
+- **空白区域识别**：哪里还没人解决？你的机会在哪。
+- **关键 X 排序**：哪些输入变量真正驱动你的 CTQ？先测什么。
+
+### 🧪 AI 设计 DOE — 第 1 轮和第 2 轮
+
+基于专利证据、空白区域分析和关键 X 排序：
+
+- **第 1 轮 DOE · 筛选**：部分因子设计 (2⁴⁻¹, Resolution IV) — 识别主导因素
+- **第 2 轮 DOE · 优化**：中心复合设计 — 找到最佳区域
+- **你跑实验。AI 分析 DOE 数据。** 模型更新。反馈结果。
+
+### 📊 完整 R&D 报告 — 9 步工作流输出
 
 ```
 01 项目摄入 → 02 VOC→CTQ → 03 证据挖掘 → 04 专利抽取
-→ 05 X-Y 综合 → 06 风险筛查 → 07 DOE 实验设计
+→ 05 X-Y 综合 → 06 风险筛查 → 07 DOE 设计
 → 08 后实验学习 → 09 组合复制
 ```
 
 每份报告包含：
 - 🎯 **专利优先级列表**：0-50 分评分，附排序理由
 - 🧩 **X 字典 / Y 字典**：所有材料参数和性能指标的结构化索引
-- 🔀 **X-Y 关系矩阵**：因果关系汇总表
-- ⚠️ **风险筛查**：技术可行性 + 专利侵权风险提示（非法律意见）
-- 🧪 **DOE 实验组合**：基于专利发现的实验方案建议
+- 🔀 **X-Y 关系矩阵**：因果汇总表，附证据等级
+- ⚠️ **风险筛查**：技术可行性 + 专利格局风险
+- 🧪 **DOE 实验组合**：基于专利发现的实验方案
 
-### 🎨 AI 设计 PPT — 告别丑陋默认模板
+### 🎨 AI 设计演示文稿
 
-10 种配色方案，4 种字体配对，自动为你的报告生成专业演示文稿：
+10 种配色方案，4 种字体搭配 — 自动从报告生成专业幻灯片。不用写完报告再花一天做 PPT。
 
-| 配色 | 适用场景 |
-|------|----------|
-| Midnight Executive | 正式技术汇报 |
-| Forest & Moss | 环保/可持续发展 |
-| Ocean Depths | 化学/材料 |
-| Sunset Innovation | 创新/创业路演 |
-| Coral Energy | 电池/能源 |
-| Arctic Professional | 医疗/生物材料 |
+---
+
+## 🎓 真实世界影响 — 从学术发现到工业规模
+
+FORGE AI 覆盖完整的研究光谱：
+
+**面向大学研究员：**
+- 几分钟内将模糊的研究问题转化为结构化的文献地图
+- 识别前 30 篇专利在哪些 X 变量上一致——以及哪里相互矛盾
+- 生成有真实证据支撑的 DOE 假设，不是凭感觉
+- 把博士后的时间花在实验上，而不是读 50 篇论文
+
+**面向任何规模材料企业的 R&D 工程师：**
+- 在下一次配方会议前绘制全球竞争格局
+- 发现竞争对手错过的空白区域——他们没申请的专利、没尝试的组分
+- 用专利证据向 R&D 总监论证你的 DOE，而不是直觉
+- 知识跨项目累积：每个配方为下一个提供基础
+
+**连接学术与工业：**
+大学实验室发现了一种新型聚合物骨架。R&D 工程师需要知道它能否放大。FORGE AI 连接这些点——从学术论文的合成条件到中试车间的制造可行性。
+
+这不是假设。上文的 Ti 合金骨植入物示例端到端运行：基础冶金学（学术）→ 竞争性 3D 打印工艺（工业）→ FDA 可申报的 DOE（转化）。
 
 ---
 
@@ -112,15 +150,13 @@
 
 - Python 3.10+
 - Node.js 18+
-- DeepSeek API Key（[免费注册](https://platform.deepseek.com/api_keys)，~¥8/100次）
+- DeepSeek API Key（[免费注册](https://platform.deepseek.com/api_keys)，约 ¥8/100 次报告）
 
 ### 第 1 步：克隆 & 配置
 
 ```bash
 git clone https://github.com/newbison/AI_CHEMIST.git
 cd AI_CHEMIST
-
-# 配置 API Key
 echo "DEEPSEEK_API_KEY=sk-你的key" > .env
 ```
 
@@ -142,32 +178,28 @@ npm run dev
 # → 前端运行在 http://localhost:5173
 ```
 
-打开浏览器访问 `http://localhost:5173`，输入你的 VOC，点击搜索。
+打开浏览器，输入研究问题，看 FORGE AI 工作。
 
 ---
 
 ## 📦 输出格式
 
-| 格式 | 特点 | 生成方式 |
-|------|------|----------|
-| **.md** | 纯文本，可直接粘贴到飞书/Notion | 直接下载 |
-| **.docx** | Word 文档，中文字体优化 | Python 渲染 |
-| **.pptx** | AI 设计的演示文稿，高颜值 | PptxGenJS + DeepSeek |
+| 格式 | 描述 | 方法 |
+|------|------|------|
+| **.md** | 纯 Markdown — 粘贴到飞书、Notion 或 Wiki | 直接下载 |
+| **.docx** | Word 文档 — CJK 字体优化，适合正式交付 | Python 渲染 |
+| **.pptx** | AI 设计幻灯片 — 高级质感，零手动排版 | PptxGenJS + DeepSeek |
 
 ---
 
 ## 🐳 Docker 部署
 
 ```bash
-docker build -t ai-chemist .
-docker run -p 8001:8001 -e DEEPSEEK_API_KEY=sk-你的key ai-chemist
+docker build -t forge-ai .
+docker run -p 8001:8001 -e DEEPSEEK_API_KEY=sk-你的key forge-ai
 ```
 
-浏览器打开 `http://localhost:8001`（Docker 内置了生产构建的前端）。
-
-支持一键部署到：
-- [Zeabur](ZEABUR.md)（支付宝支付，~$5/月）
-- [Hugging Face Spaces](HF_SPACES.md)（完全免费）
+一键部署到 [Zeabur](ZEABUR.md) 或 [Hugging Face Spaces](HF_SPACES.md)。
 
 ---
 
@@ -175,14 +207,14 @@ docker run -p 8001:8001 -e DEEPSEEK_API_KEY=sk-你的key ai-chemist
 
 | 层 | 技术 |
 |----|------|
-| **AI 模型** | DeepSeek-Chat (V3) — OpenAI 兼容协议 |
-| **后端** | FastAPI + Uvicorn — 异步 SSE 流式输出 |
-| **前端** | React 18 + TypeScript + Vite |
-| **专利搜索** | httpx 多源并发 + HTML/XML 解析 |
+| **AI 模型** | DeepSeek V3 — 128K 上下文，SSE 流式，OpenAI 兼容 |
+| **后端** | FastAPI + Uvicorn — 异步多源专利搜索 |
+| **前端** | React 18 + TypeScript + Vite — 3 步 SPA |
+| **专利搜索** | httpx 多源 + HTML/XML 解析 + 6 级回退 |
 | **Word 导出** | python-docx |
 | **PPT 导出** | PptxGenJS (Node.js 子进程) + python-pptx (回退) |
-| **容器化** | Docker — Python 3.11 + Node.js 22 多语言镜像 |
-| **部署** | Zeabur / Hugging Face Spaces / 任意支持 Docker 的平台 |
+| **容器** | Docker — Python 3.11 + Node.js 22 双语言镜像 |
+| **部署** | Zeabur / Hugging Face Spaces / 任何支持 Docker 的平台 |
 
 ---
 
@@ -191,22 +223,22 @@ docker run -p 8001:8001 -e DEEPSEEK_API_KEY=sk-你的key ai-chemist
 ```
 FORGE_AI/
 ├── webapp/
-│   ├── backend/           # FastAPI 后端
-│   │   ├── main.py             # API 路由 (health/search/generate/export)
-│   │   ├── patent_search.py    # 6 级回退全球专利检索
-│   │   ├── prompt_builder.py   # System/User prompt 构建
-│   │   ├── llm_client.py       # DeepSeek SSE 流式客户端
-│   │   ├── pptx_export.py      # PPTX 生成 (PptxGenJS + python-pptx)
-│   │   └── docx_export.py      # Word 导出
-│   └── frontend/           # React + TypeScript 前端
-│       └── src/
-│           └── components/     # InputStep → PatentsStep → ReportStep
+│   ├── backend/              # FastAPI 后端
+│   │   ├── main.py               # API 路由
+│   │   ├── patent_search.py      # 6 级回退全球专利搜索
+│   │   ├── prompt_builder.py     # System/User prompt 构建
+│   │   ├── llm_client.py         # DeepSeek SSE 流式客户端
+│   │   ├── pptx_export.py        # PPTX 生成
+│   │   └── docx_export.py        # Word 导出
+│   └── frontend/              # React + TypeScript 前端
+│       └── src/components/       # InputStep → PatentsStep → ReportStep
 ├── rd-portfolio-rd-intelligence/  # 编排器 Skill (9 步 workflow)
 ├── patent-xy-extraction-skill/    # 抽取器 Skill (10-pass X-Y 提取)
 ├── ppt-design-skill/              # PPT 设计 Skill (PptxGenJS)
+├── ppt/                           # 生成的 PPT 文件
 ├── Dockerfile                     # 多语言 Docker 镜像
 ├── ZEABUR.md                      # Zeabur 部署指南
-└── HF_SPACES.md                   # Hugging Face 部署指南
+└── HF_SPACES.md                   # Hugging Face Spaces 部署指南
 ```
 
 ---
@@ -218,16 +250,16 @@ FORGE_AI/
 | `DEEPSEEK_API_KEY` | DeepSeek API 密钥 | **必需** |
 | `DEEPSEEK_MODEL` | 模型名称 | `deepseek-chat` |
 | `DEEPSEEK_BASE_URL` | API 地址 | `https://api.deepseek.com` |
-| `EPO_OPS_KEY` | EPO 专利 API Key（可选，提升搜索质量） | — |
+| `EPO_OPS_KEY` | EPO 专利 API Key（可选，提升搜索质量）| — |
 | `EPO_OPS_SECRET` | EPO 专利 API Secret | — |
-| `PATENTS_ALLOW_LLM_FALLBACK` | 允许 LLM 生成专利号（不得已时） | `0` |
+| `PATENTS_ALLOW_LLM_FALLBACK` | 允许 LLM 生成专利号（最后手段）| `0` |
 | `SERVE_STATIC` | 后端托管前端静态文件 | `0` (开发) / `1` (生产) |
 
 ---
 
 ## 🤝 贡献
 
-欢迎提 Issue 和 PR！项目目标：
+欢迎提 Issue 和 PR。路线图：
 
 - [ ] 支持更多 LLM（Claude、GPT-4、Qwen）
 - [ ] 专利全文 PDF 下载
@@ -238,10 +270,10 @@ FORGE_AI/
 
 ## 📄 License
 
-MIT © 2025 AI CHEMIST
+MIT © 2025 FORGE AI
 
 ---
 
 <p align="center">
-  <sub>Built by a chemist, for materials scientists & chemists.</sub>
+  <sub>FORGE AI — 为每一家材料公司，从创业公司到全球企业。化学家打造。</sub>
 </p>
