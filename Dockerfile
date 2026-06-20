@@ -33,21 +33,20 @@ WORKDIR /app
 COPY webapp/backend/ /app/
 COPY ppt-design-skill/ /ppt-design-skill/
 
-# ---- Startup script ----
-RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'set -e' >> /start.sh && \
-    echo 'PORT=${PORT:-8001}' >> /start.sh && \
-    echo 'echo "=== AI CHEMIST starting ==="' >> /start.sh && \
-    echo 'echo "PORT=$PORT"' >> /start.sh && \
-    echo 'echo "SERVE_STATIC=$SERVE_STATIC"' >> /start.sh && \
-    echo 'echo "Python: $(python --version)"' >> /start.sh && \
-    echo 'echo "Node: $(node --version)"' >> /start.sh && \
-    echo 'ls -la /app/main.py && echo "main.py OK"' >> /start.sh && \
-    echo 'ls -la /frontend/dist/index.html && echo "frontend dist OK"' >> /start.sh && \
-    echo 'ls -d /ppt-design-skill && echo "skill dir OK"' >> /start.sh && \
-    echo 'echo "Starting uvicorn on 0.0.0.0:$PORT..."' >> /start.sh && \
-    echo 'exec uvicorn main:app --host 0.0.0.0 --port $PORT' >> /start.sh && \
-    chmod +x /start.sh
+# ---- Startup script (no set -e! diagnostics must never kill the container) ----
+RUN { \
+    echo '#!/bin/bash'; \
+    echo 'PORT=${PORT:-8001}'; \
+    echo 'echo "=== AI CHEMIST starting ==="'; \
+    echo 'echo "PORT=$PORT  SERVE_STATIC=$SERVE_STATIC"'; \
+    echo 'echo "Python: $(python --version 2>&1)"'; \
+    echo 'echo "Node: $(node --version 2>&1)"'; \
+    echo 'ls -la /app/main.py >&2 || echo "[WARN] main.py not found"'; \
+    echo 'ls -la /frontend/dist/index.html >&2 || echo "[WARN] frontend dist not found"'; \
+    echo 'ls -d /ppt-design-skill >&2 || echo "[WARN] ppt-design-skill not found"'; \
+    echo 'echo "=== Starting uvicorn on 0.0.0.0:$PORT ==="'; \
+    echo 'exec python -m uvicorn main:app --host 0.0.0.0 --port $PORT --no-access-log'; \
+} > /start.sh && chmod +x /start.sh
 
 # ---- Runtime config ----
 ENV SERVE_STATIC=1
