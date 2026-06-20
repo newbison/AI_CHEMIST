@@ -140,13 +140,16 @@ def build_user_prompt(voc: str, patents: list[dict]) -> str:
     parts.append(f"# 用户 VOC\n\n{voc}\n")
 
     # ---- 入选专利（详情文本附在每篇后面） ----
-    # 动态截断：专利多时每篇保留更少，保证总 prompt 可控
-    if len(patents) > 20:
-        detail_limit = 4000
-    elif len(patents) > 10:
-        detail_limit = 6000
+    # 智能截断：优先保留 Abstract + Claims，Description 按剩余预算截断
+    # 专利多时压缩 Description 而非砍掉 Claims
+    if len(patents) > 25:
+        desc_budget = 0       # 超大批量：只保留 Abstract + Claims
+    elif len(patents) > 15:
+        desc_budget = 1500    # 大批量：Description 保留 1500 字符
+    elif len(patents) > 8:
+        desc_budget = 3000    # 中批量
     else:
-        detail_limit = 8000
+        desc_budget = 5000    # 小批量：保留完整 Description
 
     parts.append(f"# 入选专利（共 {len(patents)} 篇，{with_detail} 篇有完整文本）\n")
     for i, p in enumerate(patents, 1):
@@ -161,7 +164,42 @@ def build_user_prompt(voc: str, patents: list[dict]) -> str:
             f"- 摘要/片段:\n{p.get('snippet', 'N/A')}\n"
         )
         if has_detail:
-            parts.append(f"- 详情文本:\n{p['detail_text'][:detail_limit]}\n")
+            detail = _truncate_detail(p['detail_text'], desc_budget)
+            parts.append(f"- 详情文本:\n{detail}\n")
+
+
+def _truncate_detail(detail_text: str, desc_budget: int) -> str:
+    """智能截断专利详情：保留 Abstract+Claims 完整，按预算截断 Description。
+
+    结构: [Abstract]\n...\n\n[Inventors]\n...\n\n[Assignee]\n...\n\n
+           [Claims]\n...\n\n[Description]\n...
+    """
+    if desc_budget >= 5000:
+        return detail_text  # 不超过 5000 时直接全保留（实际约 10K）
+
+    # 找到 [Description] 的位置
+    desc_start = detail_text.find("\n[Description] ")
+    if desc_start == -1:
+        desc_start = detail_text.find("[Description] ")
+
+    if desc_start == -1:
+        # 没有 Description 段，直接截总长
+        return detail_text[:6000]
+
+    # 保留 Description 之前的所有内容（Abstract+Inventors+Assignee+Claims）
+    before_desc = detail_text[:desc_start].strip()
+    description = detail_text[desc_start:]
+
+    if desc_budget == 0:
+        return before_desc + f"\n[Description] (已截断，共省略 {len(description)} 字符)"
+
+    # 截断 Description 到预算
+    truncated_desc = description[:desc_budget]
+    omitted = len(description) - len(truncated_desc)
+    if omitted > 0:
+        truncated_desc += f"...(省略 {omitted} 字符)"
+
+    return before_desc + "\n" + truncated_desc
 
     # ---- 参考材料（skill 文件放末尾） ----
     parts.append(_build_skill_reference())
