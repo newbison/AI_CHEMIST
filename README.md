@@ -7,8 +7,8 @@
   <img src="https://img.shields.io/badge/PptxGenJS-Powered-FF6B6B?style=for-the-badge&logo=javascript&logoColor=white" alt="PptxGenJS">
 </p>
 
-<h1 align="center">🧪 AI CHEMIST</h1>
-<h3 align="center">从客户需求到 R&D 智能报告 — AI 驱动的材料科学研发加速器</h3>
+<h1 align="center">⚒️ FORGE AI</h1>
+<h3 align="center">The AI-Native R&D Platform — Built by a Chemist, for Materials Scientists & Chemists</h3>
 
 <p align="center">
   <b>输入一句 VOC → 全球专利检索 → AI 逐篇分析 → 一份完整的 R&D 智能报告</b><br>
@@ -18,7 +18,7 @@
 
 ---
 
-## 🎯 为什么你需要 AI CHEMIST？
+## 🎯 为什么你需要 FORGE AI？
 
 作为材料科学家或研发工程师，你面对这样的困境：
 
@@ -26,7 +26,7 @@
 
 传统流程：手动搜索专利（2天）→ 阅读筛选（3天）→ 整理分析（2天）→ 写报告（1天）= **8 天**
 
-**AI CHEMIST：5 分钟。**
+**FORGE AI：5 分钟。**
 
 ```
   ┌──────────┐     ┌─────────────────┐     ┌──────────────────┐     ┌─────────────┐
@@ -185,7 +185,7 @@ docker run -p 8001:8001 -e DEEPSEEK_API_KEY=sk-你的key ai-chemist
 ## 📁 项目结构
 
 ```
-AI_CHEMIST/
+FORGE_AI/
 ├── webapp/
 │   ├── backend/           # FastAPI 后端
 │   │   ├── main.py             # API 路由 (health/search/generate/export)
@@ -239,5 +239,5 @@ MIT © 2025 AI CHEMIST
 ---
 
 <p align="center">
-  <sub>Built with ❤️ by R&D engineers, for R&D engineers.</sub>
+  <sub>Built by a chemist, for materials scientists & chemists.</sub>
 </p>
