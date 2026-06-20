@@ -162,6 +162,8 @@ This isn't hypothetical. The Ti-alloy bone implant example above runs end-to-end
 
 FORGE AI is one half of a larger system. The other half is the **[SPC Platform](https://github.com/newbison/spc-batch-monitor)** — a statistical process control and DOE analysis engine built for manufacturing process control and quality optimization. Applicable to any industry: chemicals, coatings, adhesives, polymers, pharmaceuticals, food, and beyond.
 
+> 🟢 **Try the SPC Platform live:** [spc-batch-monitor.streamlit.app](https://spc-batch-monito-tgnpmprhsqmpuxr4q6wktu.streamlit.app/)
+
 Together they form a **closed-loop R&D system**:
 
 ```
