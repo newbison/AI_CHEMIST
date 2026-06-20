@@ -158,7 +158,7 @@ FORGE AI 覆盖完整的研究光谱：
 
 ## 🔗 整合：FORGE AI ↔ SPC 平台
 
-FORGE AI 是更大系统的一半。另一半是 **[SPC Platform](https://github.com/newbison/spc-batch-monitor)**——一个为化工批次涂布工艺打造的统计过程控制和 DOE 分析引擎。
+FORGE AI 是更大系统的一半。另一半是 **[SPC Platform](https://github.com/newbison/spc-batch-monitor)**——一个为制造过程控制和质量优化打造的统计过程控制和 DOE 分析引擎。适用于任何行业：化工、涂料、胶粘剂、聚合物、制药、食品等。
 
 两者组成**闭环研发系统**：
 
