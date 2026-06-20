@@ -270,6 +270,14 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
 
         user_prompt = build_user_prompt(req.voc, working_patents)
 
+        # 诊断：确认详情文本确实进了 prompt
+        detail_count = user_prompt.count('[Abstract]')
+        claim_count = user_prompt.count('[Claims]')
+        desc_count = user_prompt.count('[Description]')
+        print(f"[generate] Prompt: {len(user_prompt)} chars ~{len(user_prompt)//4} tokens | "
+              f"[Abstract]x{detail_count} [Claims]x{claim_count} [Description]x{desc_count} | "
+              f"patents with detail_text: {sum(1 for p in working_patents if p.get('detail_text'))}")
+
         # 通知前端：即将调用 LLM（首 token 可能需要 20-60 秒，让前端知道在处理）
         prompt_size = len(system_prompt) + len(user_prompt)
         yield f"data: {json.dumps({'type': 'progress', 'stage': 'llm_calling', 'prompt_size': prompt_size})}\n\n"
