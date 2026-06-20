@@ -1,18 +1,21 @@
 """Markdown → PowerPoint (.pptx) 转换模块。
 
-从 R&D 报告 Markdown 生成专业 PPT：
-- 封面页（深蓝背景 + 标题）
-- 按 H1/H2 分页，每页一个主题
-- 表格转 PPT 表格
-- 列表转要点
-- 统一颜色主题（与 Word 一致）
+两条路径：
+1. PptxGenJS 路径（主力）：DeepSeek 生成 JS 代码 → Node.js 执行 → 高质量 PPT
+2. python-pptx 路径（回退）：解析 Markdown 直接用 python-pptx 渲染
+
+PptxGenJS 生成的 PPT 设计质量更高，支持丰富的形状、阴影、图标等效果。
 """
 from __future__ import annotations
 
 import io
 import math
+import os
 import re
+import subprocess
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from typing import Literal
 
 from pptx import Presentation
@@ -1216,9 +1219,124 @@ def markdown_to_pptx_designed(design_plan: dict, *, title: str | None = None) ->
     return buf.getvalue()
 
 
+# ===========================================================================
+# PptxGenJS 路径：DeepSeek 生成 JS 代码 → Node.js 执行 → .pptx
+# ===========================================================================
+
+
+def execute_pptxgenjs(js_code: str, *, timeout: int = 60) -> bytes | None:
+    """执行 PptxGenJS JavaScript 代码，返回生成的 .pptx 字节流。
+
+    Args:
+        js_code: PptxGenJS JavaScript 代码（完整的 Node.js 脚本）
+        timeout: Node.js 执行超时秒数
+
+    Returns:
+        .pptx 文件字节流，失败返回 None
+    """
+    # 检查 Node.js 是否可用
+    try:
+        result = subprocess.run(
+            ["node", "--version"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode != 0:
+            print("[pptx_export] Node.js 不可用")
+            return None
+        print(f"[pptx_export] Node.js {result.stdout.strip()}")
+    except FileNotFoundError:
+        print("[pptx_export] 未找到 Node.js，请安装 Node.js")
+        return None
+    except Exception as e:
+        print(f"[pptx_export] 检查 Node.js 失败: {e}")
+        return None
+
+    # 构建环境变量：加入全局 node_modules 路径
+    env = os.environ.copy()
+    # 查找全局 npm 路径
+    try:
+        npm_root = subprocess.run(
+            ["npm", "root", "-g"], capture_output=True, text=True, timeout=5
+        )
+        global_modules = npm_root.stdout.strip()
+        if global_modules and Path(global_modules).is_dir():
+            existing = env.get("NODE_PATH", "")
+            env["NODE_PATH"] = f"{global_modules};{existing}" if existing else global_modules
+    except Exception:
+        pass
+
+    # 在临时目录中执行（PptxGenJS 的 writeFile 会输出到当前工作目录）
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # 写入 JS 脚本
+        script_path = tmpdir_path / "generate.js"
+        script_path.write_text(js_code, encoding="utf-8")
+
+        # 执行
+        try:
+            result = subprocess.run(
+                ["node", str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(tmpdir_path),
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            print(f"[pptx_export] Node.js 执行超时 ({timeout}s)")
+            return None
+        except Exception as e:
+            print(f"[pptx_export] Node.js 执行异常: {e}")
+            return None
+
+        # 检查输出
+        stdout = result.stdout
+        stderr = result.stderr
+
+        if stderr:
+            print(f"[pptx_export] Node.js stderr:\n{stderr[:2000]}")
+
+        if "DONE:" not in stdout:
+            print(f"[pptx_export] 脚本未正常完成，stdout:\n{stdout[:2000]}")
+            # 仍然尝试读取 output.pptx（可能 writeFile 成功但 console.log 格式不同）
+
+        output_path = tmpdir_path / "output.pptx"
+        if output_path.exists():
+            pptx_bytes = output_path.read_bytes()
+            print(f"[pptx_export] 成功生成 .pptx: {len(pptx_bytes)} bytes ({len(pptx_bytes)//1024} KB)")
+            return pptx_bytes
+
+        print("[pptx_export] 未找到 output.pptx")
+        return None
+
+
+def markdown_to_pptx_via_pptxgenjs(markdown: str, *, title: str | None = None) -> bytes | None:
+    """PptxGenJS 路径：Markdown → DeepSeek 生成 JS 代码 → Node.js 执行 → .pptx
+
+    这是推荐的 PPT 生成路径，生成的 PPT 设计质量远高于 python-pptx 路径。
+
+    Args:
+        markdown: R&D 报告 Markdown 文本
+        title: 可选覆盖标题
+
+    Returns:
+        .pptx 字节流，失败返回 None（调用方应回退到 markdown_to_pptx）
+    """
+    from ppt_designer import design_pptx_js_safe
+
+    js_code = design_pptx_js_safe(markdown)
+    if not js_code:
+        print("[pptx_export] DeepSeek 未生成有效的 PptxGenJS 代码，回退")
+        return None
+
+    print(f"[pptx_export] DeepSeek 生成了 {len(js_code)} 字符的 PptxGenJS 代码")
+
+    pptx_bytes = execute_pptxgenjs(js_code)
+    return pptx_bytes
+
+
 if __name__ == "__main__":
     # 测试
-    from pathlib import Path
     sample = Path(__file__).parent.parent.parent / "docs" / "reports" / "2026-06-19-battery-tape-rd-report.md"
     if sample.exists():
         md = sample.read_text(encoding="utf-8")

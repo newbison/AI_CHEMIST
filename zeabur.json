@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/zeabur/zeabur/main/schema.json",
+  "name": "AI CHEMIST",
+  "description": "R&D Intelligence Report Generator — FastAPI + React + PptxGenJS",
+  "rootDirectory": "."
+}

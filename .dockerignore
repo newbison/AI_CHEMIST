@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+webapp/frontend/node_modules/
+
+# Env files (API keys!)
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Agent
+.workbuddy/
+.trae/
+.claude/
+
+# Generated
+docs/reports/
+local_patents.json
+_tmp_*
+tmp/
+
+# OS
+Thumbs.db
+.DS_Store

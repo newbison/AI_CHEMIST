@@ -36,8 +36,7 @@ from patent_search import (  # noqa: E402
 from prompt_builder import build_system_prompt, build_user_prompt  # noqa: E402
 from llm_client import stream_report  # noqa: E402
 from docx_export import markdown_to_docx  # noqa: E402
-from pptx_export import markdown_to_pptx, markdown_to_pptx_designed  # noqa: E402
-from ppt_designer import design_ppt_slides_safe  # noqa: E402
+from pptx_export import markdown_to_pptx, markdown_to_pptx_via_pptxgenjs  # noqa: E402
 from voc_analyzer import analyze_voc_to_strategies  # noqa: E402
 
 app = FastAPI(title="R&D Intelligence Report Generator", version="1.0.0")
@@ -290,19 +289,20 @@ def export_docx(req: ExportDocxRequest):
 def export_pptx(req: ExportPptxRequest):
     """把 Markdown 报告转成 PowerPoint (.pptx) 文件下载。
 
-    流程：先调用 DeepSeek 读取 ppt-design-skill 生成设计方案 JSON，
-    再按设计方案渲染美化版 PPT。若 LLM 设计失败，回退到普通模板渲染。
+    两条路径：
+    1. **PptxGenJS 路径（优先）**：DeepSeek → JS 代码 → Node.js 执行 → 高质量 PPT
+    2. **python-pptx 路径（回退）**：直接解析 Markdown 用 python-pptx 渲染
+
+    只有 PptxGenJS 路径失败时才会走回退路径。
     """
     from fastapi.responses import Response
 
-    # 阶段1：LLM 设计
-    design_plan = design_ppt_slides_safe(req.report)
-    designed_bytes = markdown_to_pptx_designed(design_plan, title=req.title)
+    # 路径 1：PptxGenJS（DeepSeek 生成 JS → Node.js 执行）
+    pptx_bytes = markdown_to_pptx_via_pptxgenjs(req.report, title=req.title)
 
-    # 阶段2：渲染（设计方案有效用美化版，否则回退普通版）
-    if designed_bytes:
-        pptx_bytes = designed_bytes
-    else:
+    # 路径 2（回退）：python-pptx 直接渲染
+    if not pptx_bytes:
+        print("[export-pptx] PptxGenJS 路径失败，回退到 python-pptx")
         pptx_bytes = markdown_to_pptx(req.report, title=req.title)
 
     filename = req.filename or f"rd-report-{__import__('datetime').datetime.now().strftime('%Y%m%d')}.pptx"
@@ -352,10 +352,14 @@ def _extract_keywords(voc: str) -> str:
 
 # ---------------------------------------------------------------------------
 # 生产模式静态文件（必须在所有 API 路由之后挂载）
+# 本地开发请用 Vite dev server + proxy，不要启用此模式
 # ---------------------------------------------------------------------------
-FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
-if FRONTEND_DIST.is_dir():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+if os.environ.get("SERVE_STATIC", "0") == "1":
+    FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    if FRONTEND_DIST.is_dir():
+        app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+    else:
+        print("[static] 生产模式但未找到 dist/，请先在前端目录执行 npm run build")
 
 
 if __name__ == "__main__":
