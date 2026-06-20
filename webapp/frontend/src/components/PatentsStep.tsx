@@ -29,12 +29,12 @@ export default function PatentsStep({
     }
   }
 
-  function selectAll() {
-    onSelectedChange([...patents])
-  }
-
   function selectTop8() {
     onSelectedChange(patents.slice(0, 8))
+  }
+
+  function selectAll() {
+    onSelectedChange([...patents])
   }
 
   function clearAll() {
@@ -85,11 +85,11 @@ export default function PatentsStep({
       )}
 
       <div className="patent-actions">
-        <button className="ghost-btn" onClick={selectTop8}>选前 8 篇</button>
-        <button className="ghost-btn" onClick={selectAll}>全选</button>
-        <button className="ghost-btn" onClick={clearAll}>清空</button>
+        <button className="ghost-btn" onClick={selectTop8}>⭐ 选前8篇（推荐）</button>
+        <button className="ghost-btn primary-ghost" onClick={selectAll}>☑ 全选（{patents.length} 篇）</button>
+        <button className="ghost-btn" onClick={clearAll}>✕ 清空</button>
         <span className="patent-count">
-          已选 <strong>{selected.length}</strong> / {patents.length}
+          已选 <strong>{selected.length}</strong> / {patents.length} 篇
         </span>
       </div>
 

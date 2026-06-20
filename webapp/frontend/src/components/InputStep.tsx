@@ -66,6 +66,7 @@ export default function InputStep({
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
+  const [patentNum, setPatentNum] = useState<number>(20)
   const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 10))
 
   // 生成关键词
@@ -144,7 +145,7 @@ export default function InputStep({
         body: JSON.stringify({
           voc,
           strategies: valid,
-          num: 20,
+          num: patentNum,
         }),
       })
       if (!resp.ok) throw new Error(`检索失败: ${resp.status}`)
@@ -272,6 +273,28 @@ export default function InputStep({
           <button className="ghost-btn" onClick={addStrategy} type="button">
             + 添加自定义策略
           </button>
+
+          <div className="patent-num-selector">
+            <label className="form-label">
+              <span className="label-tag">数量</span>
+              检索专利数量
+            </label>
+            <div className="num-select-group">
+              {([20, 30, 40, 50] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`num-chip ${patentNum === n ? 'active' : ''}`}
+                  onClick={() => setPatentNum(n)}
+                >
+                  {n} 篇
+                </button>
+              ))}
+            </div>
+            <div className="num-hint">
+              更多专利 = 更广的覆盖范围，但检索时间略长；默认 20 篇已足够大多数场景
+            </div>
+          </div>
 
           {error && <div className="error-banner">{error}</div>}
 

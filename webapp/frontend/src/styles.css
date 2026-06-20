@@ -251,6 +251,16 @@
   transition: all 0.2s;
 }
 
+.ghost-btn.primary-ghost {
+  border-color: #6366f1;
+  color: #4f46e5;
+  background: #eef2ff;
+  font-weight: 600;
+}
+.ghost-btn.primary-ghost:hover {
+  border-color: #4f46e5;
+  background: #e0e7ff;
+}
 .ghost-btn:hover {
   border-color: var(--accent);
   color: var(--text);
@@ -677,6 +687,51 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 20px;
+}
+
+/* 专利数量选择器 */
+.patent-num-selector {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.num-select-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.num-chip {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.num-chip:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.num-chip.active {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+.num-hint {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: #94a3b8;
 }
 
 /* ===== Report ===== */
