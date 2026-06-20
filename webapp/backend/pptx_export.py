@@ -1252,7 +1252,7 @@ def execute_pptxgenjs(js_code: str, *, timeout: int = 60) -> bytes | None:
 
     # 构建环境变量：加入全局 node_modules 路径
     env = os.environ.copy()
-    # 查找全局 npm 路径
+    # 方式 1：尝试 npm root -g（有时候 npm 不在 subprocess 的 PATH 里）
     try:
         npm_root = subprocess.run(
             ["npm", "root", "-g"], capture_output=True, text=True, timeout=5
@@ -1261,8 +1261,41 @@ def execute_pptxgenjs(js_code: str, *, timeout: int = 60) -> bytes | None:
         if global_modules and Path(global_modules).is_dir():
             existing = env.get("NODE_PATH", "")
             env["NODE_PATH"] = f"{global_modules};{existing}" if existing else global_modules
+            print(f"[pptx_export] NODE_PATH={env['NODE_PATH']}")
     except Exception:
         pass
+
+    # 方式 2：如果 npm root -g 失败（Windows 常见），直接探测常见全局路径
+    if "NODE_PATH" not in env:
+        candidates = [
+            # Windows
+            Path(os.environ.get("APPDATA", "")) / "npm" / "node_modules",
+            # Linux/Mac
+            Path("/usr/local/lib/node_modules"),
+            Path("/usr/lib/node_modules"),
+        ]
+        for p in candidates:
+            if (p / "pptxgenjs").is_dir():
+                env["NODE_PATH"] = str(p)
+                print(f"[pptx_export] NODE_PATH (fallback)={env['NODE_PATH']}")
+                break
+
+    # 方式 3：用 node 探测
+    if "NODE_PATH" not in env:
+        try:
+            result = subprocess.run(
+                ["node", "-e", "console.log(require('module').globalPaths.filter(p => require('fs').existsSync(require('path').join(p, 'pptxgenjs')))[0] || '')"],
+                capture_output=True, text=True, timeout=5,
+            )
+            found = result.stdout.strip()
+            if found:
+                env["NODE_PATH"] = found
+                print(f"[pptx_export] NODE_PATH (node detect)={env['NODE_PATH']}")
+        except Exception:
+            pass
+
+    if "NODE_PATH" not in env:
+        print("[pptx_export] 警告: 未找到 pptxgenjs 全局安装路径，PPT 生成将回退到 python-pptx")
 
     # 在临时目录中执行（PptxGenJS 的 writeFile 会输出到当前工作目录）
     with tempfile.TemporaryDirectory() as tmpdir:
