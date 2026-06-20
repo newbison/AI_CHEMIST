@@ -29,6 +29,12 @@ export default function PatentsStep({
     }
   }
 
+  // 判断"前8篇"是否已全选（用于按钮状态提示）
+  const top8Nums = new Set(patents.slice(0, 8).map((p) => p.patent_number))
+  const isTop8Selected =
+    selected.length === Math.min(8, patents.length) &&
+    selected.every((p) => top8Nums.has(p.patent_number))
+
   function selectTop8() {
     onSelectedChange(patents.slice(0, 8))
   }
@@ -85,7 +91,13 @@ export default function PatentsStep({
       )}
 
       <div className="patent-actions">
-        <button className="ghost-btn" onClick={selectTop8}>⭐ 选前8篇（推荐）</button>
+        <button
+          className={`ghost-btn ${isTop8Selected ? 'ghost-btn-active' : ''}`}
+          onClick={selectTop8}
+          disabled={isTop8Selected}
+        >
+          {isTop8Selected ? '✅ 已选前8篇' : '⭐ 选前8篇（推荐）'}
+        </button>
         <button className="ghost-btn primary-ghost" onClick={selectAll}>☑ 全选（{patents.length} 篇）</button>
         <button className="ghost-btn" onClick={clearAll}>✕ 清空</button>
         <span className="patent-count">

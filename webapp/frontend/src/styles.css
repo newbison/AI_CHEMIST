@@ -261,6 +261,16 @@
   border-color: #4f46e5;
   background: #e0e7ff;
 }
+.ghost-btn-active {
+  border-color: #22c55e !important;
+  color: #16a34a !important;
+  background: #f0fdf4 !important;
+  cursor: default;
+}
+.ghost-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
 .ghost-btn:hover {
   border-color: var(--accent);
   color: var(--text);

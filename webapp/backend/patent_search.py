@@ -848,7 +848,7 @@ def search_cn_patents(keywords: str, *, num: int = 20, timeout: float = 12.0) ->
 # 8. 专利详情抓取
 # ---------------------------------------------------------------------------
 
-def fetch_patent_detail(patent_number: str, *, timeout: float = 12.0) -> str:
+def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
     """抓取单篇专利的全文文本。
 
     优先 Google Patents，不可达时回退到 EPO Espacenet。

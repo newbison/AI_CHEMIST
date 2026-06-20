@@ -148,7 +148,9 @@ def search_patents(req: SearchRequest) -> dict:
                 "patents": [],
                 "warning": "没有有效的搜索策略",
             }
-        patents = search_by_strategies(strategies, num_per_angle=8, total=req.num)
+        # num_per_angle 按 total 动态计算，避免用户要 50 篇只拿到 32 篇
+        num_per_angle = max(10, req.num // len(strategies) + 5)
+        patents = search_by_strategies(strategies, num_per_angle=num_per_angle, total=req.num)
         # 全失败回退
         if not patents:
             fallback_query = strategies[0]["query"]
@@ -228,23 +230,32 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
         # 用独立局部变量承载（可能被详情补全替换），避免对闭包变量赋值导致 UnboundLocalError
         working_patents = patents
 
-        # 可选：抓取每篇专利详情（带可达性预检，避免不可达时整段同步卡死）
+        # 逐篇抓取专利详情（每篇 5s 超时；连续 3 篇失败则跳过剩余）
         if req.fetch_details:
-            reachable = _patents_source_reachable()
-            if not reachable.get("any_reachable"):
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail_skipped', 'reason': '所有专利数据源均不可达，使用已有摘要继续生成'})}\n\n"
-            else:
-                enriched: list[dict] = []
-                for i, p in enumerate(patents, 1):
-                    num = p.get("patent_number", "")
-                    detail = ""
-                    if num:
-                        detail = fetch_patent_detail(num)
-                    if detail:
-                        p = {**p, "detail_text": detail}
-                    enriched.append(p)
-                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail', 'index': i, 'total': len(patents), 'patent_number': num, 'ok': bool(detail)})}\n\n"
-                working_patents = enriched
+            enriched: list[dict] = []
+            consecutive_failures = 0
+            fetched_count = 0
+            for i, p in enumerate(patents, 1):
+                num = p.get("patent_number", "")
+                detail = ""
+                if num:
+                    detail = fetch_patent_detail(num, timeout=5.0)
+                if detail:
+                    p = {**p, "detail_text": detail}
+                    fetched_count += 1
+                    consecutive_failures = 0
+                else:
+                    consecutive_failures += 1
+                enriched.append(p)
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail', 'index': i, 'total': len(patents), 'patent_number': num, 'ok': bool(detail)})}\n\n"
+                # 连续 3 篇失败 → 数据源不可达，跳过剩余
+                if consecutive_failures >= 3:
+                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'detail_skipped', 'reason': f'连续 {consecutive_failures} 篇抓取失败，数据源不可达，跳过剩余 {len(patents) - i} 篇，已抓取 {fetched_count} 篇'})}\n\n"
+                    # 剩余专利不加 detail_text，直接追加
+                    for p2 in patents[i:]:
+                        enriched.append(p2)
+                    break
+            working_patents = enriched
 
         user_prompt = build_user_prompt(req.voc, working_patents)
 
@@ -317,35 +328,6 @@ def export_pptx(req: ExportPptxRequest):
 # ---------------------------------------------------------------------------
 # 辅助
 # ---------------------------------------------------------------------------
-
-def _patents_source_reachable(timeout: float = 4.0) -> dict[str, bool]:
-    """快速预检各专利数据源是否可达。
-
-    在网络受限环境（如中国）下，Google Patents 不可达但 EPO/WIPO
-    可能可达。返回各源的可达性，供调用方决定是否跳过详情抓取。
-    """
-    sources = {
-        "google": "https://patents.google.com/",
-        "epo": "https://worldwide.espacenet.com/",
-        "wipo": "https://patentscope.wipo.int/",
-        "scholar": "https://scholar.google.com/",
-    }
-    result: dict[str, bool] = {}
-    for name, url in sources.items():
-        try:
-            with httpx.Client(
-                headers={"User-Agent": "Mozilla/5.0", "Accept": "*/*"},
-                timeout=timeout,
-            ) as client:
-                resp = client.head(url, follow_redirects=True)
-                result[name] = resp.status_code < 500
-        except Exception:
-            result[name] = False
-
-    # 只要有一个可达就不算完全不可达
-    result["any_reachable"] = any(result.values())
-    return result
-
 
 def _extract_keywords(voc: str) -> str:
     """从 VOC 粗提取检索关键词。
