@@ -919,31 +919,85 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
 
 
 def _extract_patent_detail_from_html(html_text: str) -> str:
-    """从专利 HTML 页面提取详情文本（Google Patents / Espacenet 通用）。"""
-    text_parts: list[str] = []
-    desc = re.search(r'<meta name="description" content="([^"]+)"', html_text, re.IGNORECASE)
-    if desc:
-        text_parts.append(f"[Abstract] {desc.group(1)}")
+    """从专利 HTML 页面提取详情文本（Google Patents / Espacenet 通用）。
 
+    新版 Google Patents（2024+）使用 server-rendered HTML，数据在
+    <meta>/<abstract>/<section> 标签中，不需要 JS 渲染。
+    """
+    text_parts: list[str] = []
+
+    # 1. 摘要：优先 <abstract> 标签（Google Patents 新版），
+    #    回退到 <meta name="description">
+    abstract = re.search(
+        r'<abstract[^>]*>(.*?)</abstract>',
+        html_text, re.DOTALL | re.IGNORECASE,
+    )
+    if abstract:
+        ab_text = re.sub(r"<[^>]+>", " ", abstract.group(1))
+        ab_text = re.sub(r"\s+", " ", ab_text).strip()
+        if ab_text and len(ab_text) > 30:
+            text_parts.append(f"[Abstract] {ab_text}")
+    else:
+        desc = re.search(
+            r'<meta[^>]+name="description"[^>]+content="([^"]+)"',
+            html_text, re.IGNORECASE,
+        )
+        if desc:
+            d_text = desc.group(1).strip()
+            if d_text and len(d_text) > 30:
+                text_parts.append(f"[Abstract] {d_text[:2000]}")
+
+    # 2. 专利权人 + 发明人（来自 meta 标签）
+    inventors: list[str] = []
+    assignee = ""
+    for m in re.finditer(
+        r'<meta\s+name="DC\.contributor"\s+content="([^"]+)"\s+scheme="(\w+)"',
+        html_text, re.IGNORECASE,
+    ):
+        name = m.group(1).strip()
+        scheme = m.group(2)
+        if scheme == "inventor" and name:
+            inventors.append(name)
+        elif scheme == "assignee" and name:
+            assignee = name
+    if inventors:
+        text_parts.append(f"[Inventors] {', '.join(inventors[:10])}")
+    if assignee:
+        text_parts.append(f"[Assignee] {assignee}")
+
+    # 3. 权利要求
     claims = re.search(
         r'<section[^>]*itemprop="claims"[^>]*>(.*?)</section>',
-        html_text, re.IGNORECASE | re.DOTALL,
+        html_text, re.DOTALL | re.IGNORECASE,
     )
     if claims:
         claims_text = re.sub(r"<[^>]+>", " ", claims.group(1))
         claims_text = re.sub(r"\s+", " ", claims_text).strip()
-        text_parts.append(f"[Claims] {claims_text[:3000]}")
+        if claims_text:
+            text_parts.append(f"[Claims] {claims_text[:4000]}")
 
-    desc2 = re.search(
+    # 4. 详细描述
+    desc_sec = re.search(
         r'<section[^>]*itemprop="description"[^>]*>(.*?)</section>',
-        html_text, re.IGNORECASE | re.DOTALL,
+        html_text, re.DOTALL | re.IGNORECASE,
     )
-    if desc2:
-        desc_text = re.sub(r"<[^>]+>", " ", desc2.group(1))
+    if desc_sec:
+        desc_text = re.sub(r"<[^>]+>", " ", desc_sec.group(1))
         desc_text = re.sub(r"\s+", " ", desc_text).strip()
-        text_parts.append(f"[Description] {desc_text[:5000]}")
+        # 描述的"Cross Reference"部分通常很长且信息量低，截掉前 500 字符
+        # 如果开头是 "CROSS REFERENCE" 就跳过去
+        if desc_text.upper().startswith("CROSS REFERENCE"):
+            # 找第一个有意义段落（"FIELD" 或 "BACKGROUND" 之后）
+            field = re.search(
+                r'(FIELD|BACKGROUND|TECHNICAL FIELD|SUMMARY|DETAILED DESCRIPTION)',
+                desc_text, re.IGNORECASE,
+            )
+            if field:
+                desc_text = desc_text[field.start():]
+        if desc_text:
+            text_parts.append(f"[Description] {desc_text[:6000]}")
 
-    return "\n\n".join(text_parts)
+    return "\n\n".join(text_parts) if text_parts else ""
 
 
 # ---------------------------------------------------------------------------

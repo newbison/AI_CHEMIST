@@ -239,7 +239,7 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
                 num = p.get("patent_number", "")
                 detail = ""
                 if num:
-                    detail = fetch_patent_detail(num, timeout=5.0)
+                    detail = fetch_patent_detail(num, timeout=8.0)
                 if detail:
                     p = {**p, "detail_text": detail}
                     fetched_count += 1
