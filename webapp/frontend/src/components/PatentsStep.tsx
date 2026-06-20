@@ -90,19 +90,31 @@ export default function PatentsStep({
         </div>
       )}
 
-      <div className="patent-actions">
-        <button
-          className={`ghost-btn ${isTop8Selected ? 'ghost-btn-active' : ''}`}
-          onClick={selectTop8}
-          disabled={isTop8Selected}
-        >
-          {isTop8Selected ? '✅ 已选前8篇' : '⭐ 选前8篇（推荐）'}
-        </button>
-        <button className="ghost-btn primary-ghost" onClick={selectAll}>☑ 全选（{patents.length} 篇）</button>
-        <button className="ghost-btn" onClick={clearAll}>✕ 清空</button>
-        <span className="patent-count">
-          已选 <strong>{selected.length}</strong> / {patents.length} 篇
-        </span>
+      <div className="patent-actions-top">
+        <div className="patent-actions">
+          <button
+            className={`ghost-btn ${isTop8Selected ? 'ghost-btn-active' : ''}`}
+            onClick={selectTop8}
+            disabled={isTop8Selected}
+          >
+            {isTop8Selected ? '✅ 已选前8篇' : '⭐ 选前8篇（推荐）'}
+          </button>
+          <button className="ghost-btn primary-ghost" onClick={selectAll}>☑ 全选（{patents.length} 篇）</button>
+          <button className="ghost-btn" onClick={clearAll}>✕ 清空</button>
+          <span className="patent-count">
+            已选 <strong>{selected.length}</strong> / {patents.length} 篇
+          </span>
+        </div>
+        <div className="patent-quick-nav">
+          <button className="ghost-btn home-btn" onClick={onHome}>🏠 回到主页</button>
+          <button
+            className="primary-btn"
+            onClick={onGenerate}
+            disabled={selected.length === 0}
+          >
+            生成报告（{selected.length} 篇专利）→
+          </button>
+        </div>
       </div>
 
       <div className="patent-list">

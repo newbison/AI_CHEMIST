@@ -392,11 +392,31 @@
 }
 
 /* ===== Patent list ===== */
+.patent-actions-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
 .patent-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 20px;
+}
+
+.patent-quick-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .patent-count {
