@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse, ClarifyQuestion, ClarifyVocResponse, EnrichVocResponse } from '../types'
 import ExploreStep from './ExploreStep'
 
-/** 材料科学领域 VOC 示例池（每次随机展示 10 个） */
+/** 材料科学领域 VOC 示例池（每次随机展示 12 个） */
 const VOC_POOL: string[] = [
   '锂电池电芯终止胶带，要求在电解液（碳酸酯类，含 LiPF6）长期浸泡（85°C/72h 及以上）下保持粘接力不脱落、不溶胀、无残胶、不污染电解液；同时电气绝缘可靠，在高温和冷热循环下稳定工作；且便于产线手工/自动贴附、易撕定位、不起翘。',
   '医用钛合金植入物表面涂层，要求在体液环境下（37°C，pH 7.4）长期稳定（10 年以上）不降解、不释放金属离子；涂层需具备良好的生物相容性，促进骨整合；硬度 ≥ 5GPa，耐磨耐疲劳；表面粗糙度 Ra ≤ 0.5μm，适合精密加工。',
@@ -70,7 +70,7 @@ export default function InputStep({
   const [error, setError] = useState('')
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
   const [patentNum, setPatentNum] = useState<number>(20)
-  const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 10))
+  const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 12))
   // 澄清环节状态
   const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([])
   const [clarifyAnalysis, setClarifyAnalysis] = useState('')
@@ -282,12 +282,12 @@ export default function InputStep({
         </div>
       )}
 
-      {/* VOC 示例池：随机 10 个材料科学场景 */}
+      {/* VOC 示例池：随机 12 个材料科学场景 */}
       {phase === 'input' && (
         <div className="form-block">
           <label className="form-label">
             <span className="label-tag">示例</span>
-            材料科学 VOC 示例（随机 10 个，点击试用）
+            材料科学 VOC 示例（随机 12 个，点击试用）
           </label>
           <div className="voc-samples">
             {sampleVocs.map((v, i) => (
@@ -304,7 +304,7 @@ export default function InputStep({
           </div>
           <button
             className="link-btn"
-            onClick={() => setSampleVocs(pickRandomVocs(VOC_POOL, 10))}
+            onClick={() => setSampleVocs(pickRandomVocs(VOC_POOL, 12))}
             type="button"
           >
             ↻ 换一批示例
