@@ -10,7 +10,7 @@ export interface Patent {
   detail_text?: string
 }
 
-export type Step = 'input' | 'patents' | 'report'
+export type Step = 'input' | 'patents' | 'report' | 'document'
 
 /** AI 从 VOC 拆解出的单个搜索角度 */
 export interface SearchStrategy {
@@ -65,4 +65,12 @@ export interface VocIdea {
 export interface ExploreVocResponse {
   ideas: VocIdea[]
   warning?: string
+}
+
+/** /api/upload-doc 的响应 */
+export interface UploadDocResponse {
+  analysis: string
+  doc_name: string
+  text_preview: string
+  error?: string
 }

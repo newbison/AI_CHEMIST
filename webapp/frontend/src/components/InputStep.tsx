@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse } from '../types'
+import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse, ClarifyQuestion, ClarifyVocResponse, EnrichVocResponse } from '../types'
+import ExploreStep from './ExploreStep'
 
 /** 材料科学领域 VOC 示例池（每次随机展示 10 个） */
 const VOC_POOL: string[] = [
@@ -60,14 +61,106 @@ export default function InputStep({
   setVoc: (v: string) => void
   onSearched: (all: Patent[], selected: Patent[], strategies: SearchStrategy[]) => void
 }) {
-  // 阶段：'input' 输入VOC → 'keywords' AI生成关键词供确认 → 检索
-  const [phase, setPhase] = useState<'input' | 'keywords'>('input')
+  // 阶段：'input' 输入VOC → 'clarify' 回答选择题 → 'enriched' 确认增强VOC → 'keywords' AI生成关键词供确认 → 检索
+  const [phase, setPhase] = useState<'input' | 'clarify' | 'enriched' | 'explore' | 'keywords'>('input')
   const [analyzing, setAnalyzing] = useState(false)
   const [searching, setSearching] = useState(false)
+  const [clarifying, setClarifying] = useState(false)
+  const [enriching, setEnriching] = useState(false)
   const [error, setError] = useState('')
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
   const [patentNum, setPatentNum] = useState<number>(20)
   const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 10))
+  // 澄清环节状态
+  const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([])
+  const [clarifyAnalysis, setClarifyAnalysis] = useState('')
+  const [clarifyAnswers, setClarifyAnswers] = useState<Record<string, string>>({})
+  const [enrichedVoc, setEnrichedVoc] = useState('')
+  const [enrichChanges, setEnrichChanges] = useState<string[]>([])
+
+  // 触发 VOC 澄清：调 /api/clarify-voc 生成选择题
+  async function handleClarify() {
+    if (!voc.trim()) {
+      setError('请输入 VOC')
+      return
+    }
+    setClarifying(true)
+    setError('')
+    try {
+      const resp = await fetch('/api/clarify-voc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voc, num_questions: 4 }),
+      })
+      if (!resp.ok) throw new Error(`澄清失败: ${resp.status}`)
+      const data: ClarifyVocResponse = await resp.json()
+      if (data.questions.length === 0) {
+        // 澄清失败，直接进入关键词生成
+        setClarifying(false)
+        handleAnalyze()
+        return
+      }
+      setClarifyQuestions(data.questions)
+      setClarifyAnalysis(data.analysis || '')
+      setClarifyAnswers({})
+      setPhase('clarify')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '澄清出错，已跳过')
+      // 失败时直接进入关键词生成
+      handleAnalyze()
+    }
+    setClarifying(false)
+  }
+
+  // 选择某题的某个选项
+  function selectAnswer(qid: string, option: string) {
+    setClarifyAnswers((prev) => ({ ...prev, [qid]: option }))
+  }
+
+  // 选择"以上都不是"并输入自定义答案
+  function setCustomAnswer(qid: string, text: string) {
+    setClarifyAnswers((prev) => ({ ...prev, [qid]: `custom:${text}` }))
+  }
+
+  // 提交澄清答案，生成增强 VOC
+  async function handleEnrich() {
+    setEnriching(true)
+    setError('')
+    try {
+      const resp = await fetch('/api/enrich-voc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          original_voc: voc,
+          questions: clarifyQuestions,
+          answers: clarifyAnswers,
+        }),
+      })
+      if (!resp.ok) throw new Error(`增强失败: ${resp.status}`)
+      const data: EnrichVocResponse = await resp.json()
+      setEnrichedVoc(data.enriched_voc || voc)
+      setEnrichChanges(data.changes || [])
+      setPhase('enriched')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '增强出错')
+      // 失败时用原 VOC 直接进入关键词生成
+      handleAnalyze()
+    }
+    setEnriching(false)
+  }
+
+  // 确认增强 VOC，进入关键词生成
+  function confirmEnriched() {
+    setVoc(enrichedVoc)
+    setPhase('keywords')
+    // 自动触发关键词生成
+    setTimeout(() => handleAnalyze(), 0)
+  }
+
+  // 从 enriched 返回 clarify 重新答
+  function backToClarify() {
+    setPhase('clarify')
+  }
 
   // 生成关键词
   async function handleAnalyze() {
@@ -173,6 +266,22 @@ export default function InputStep({
         </p>
       </div>
 
+      {/* 双入口：用户选路径 */}
+      {phase === 'input' && (
+        <div className="entry-cards">
+          <div className="entry-card entry-card-primary" onClick={() => setPhase('input')}>
+            <div className="entry-card-icon">📝</div>
+            <h3 className="entry-card-title">I have a research question</h3>
+            <p className="entry-card-desc">Enter your VOC and start the analysis pipeline</p>
+          </div>
+          <div className="entry-card" onClick={() => setPhase('explore')}>
+            <div className="entry-card-icon">💡</div>
+            <h3 className="entry-card-title">I need fresh ideas</h3>
+            <p className="entry-card-desc">AI generates research questions from your product and industry</p>
+          </div>
+        </div>
+      )}
+
       {/* VOC 示例池：随机 10 个材料科学场景 */}
       {phase === 'input' && (
         <div className="form-block">
@@ -220,17 +329,172 @@ export default function InputStep({
       {phase === 'input' && (
         <button
           className="primary-btn"
-          onClick={handleAnalyze}
-          disabled={analyzing}
+          onClick={handleClarify}
+          disabled={clarifying || analyzing}
         >
-          {analyzing ? (
+          {clarifying ? (
+            <>
+              <span className="spinner" /> AI 分析 VOC 生成澄清问题...
+            </>
+          ) : analyzing ? (
             <>
               <span className="spinner" /> AI 分析 VOC 生成检索关键词...
             </>
           ) : (
-            'AI 生成检索关键词 →'
+            'AI 澄清 VOC →'
           )}
         </button>
+      )}
+
+      {/* VOC 澄清阶段：回答选择题 */}
+      {phase === 'clarify' && (
+        <div className="clarify-panel">
+          <div className="clarify-header">
+            <h2 className="clarify-title">AI 发现以下信息需要明确</h2>
+            {clarifyAnalysis && (
+              <p className="clarify-analysis">{clarifyAnalysis}</p>
+            )}
+            <div className="clarify-original-voc">
+              <span className="clarify-label">原始 VOC：</span>
+              {voc}
+            </div>
+          </div>
+
+          <div className="clarify-questions">
+            {clarifyQuestions.map((q, qi) => (
+              <div key={q.id} className="clarify-question-card">
+                <div className="clarify-question-title">
+                  {qi + 1}. {q.question}
+                </div>
+                <div className="clarify-options">
+                  {q.options.map((opt) => (
+                    <label key={opt} className="clarify-option">
+                      <input
+                        type="radio"
+                        name={q.id}
+                        checked={clarifyAnswers[q.id] === opt}
+                        onChange={() => selectAnswer(q.id, opt)}
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  ))}
+                  {q.allow_custom && (
+                    <label className="clarify-option">
+                      <input
+                        type="radio"
+                        name={q.id}
+                        checked={clarifyAnswers[q.id]?.startsWith('custom:') || false}
+                        onChange={() => setCustomAnswer(q.id, '')}
+                      />
+                      <span>以上都不是</span>
+                    </label>
+                  )}
+                  {q.allow_custom && clarifyAnswers[q.id]?.startsWith('custom:') && (
+                    <input
+                      type="text"
+                      className="clarify-custom-input"
+                      placeholder="请输入您的答案..."
+                      value={clarifyAnswers[q.id].replace(/^custom:/, '')}
+                      onChange={(e) => setCustomAnswer(q.id, e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {error && <div className="error-banner">{error}</div>}
+
+          <div className="clarify-actions">
+            <button
+              className="ghost-btn"
+              onClick={() => { setPhase('input') }}
+              type="button"
+            >
+              ← 返回修改 VOC
+            </button>
+            <button
+              className="ghost-btn"
+              onClick={() => { handleAnalyze() }}
+              type="button"
+            >
+              跳过澄清，直接生成关键词
+            </button>
+            <button
+              className="primary-btn"
+              onClick={handleEnrich}
+              disabled={enriching}
+            >
+              {enriching ? (
+                <>
+                  <span className="spinner" /> 生成增强 VOC...
+                </>
+              ) : (
+                '提交答案，生成增强 VOC →'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 增强 VOC 确认阶段 */}
+      {phase === 'enriched' && (
+        <div className="enriched-panel">
+          <div className="enriched-header">
+            <h2 className="enriched-title">增强版 VOC</h2>
+            <p className="enriched-hint">
+              以下是根据您的回答补充完善的 VOC，可编辑后确认。
+            </p>
+          </div>
+
+          {enrichChanges.length > 0 && (
+            <div className="enrich-changes">
+              <div className="enrich-changes-title">本次补充/修正：</div>
+              <ul>
+                {enrichChanges.map((c, i) => (
+                  <li key={i}>✓ {c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <textarea
+            className="voc-input enriched-voc-input"
+            value={enrichedVoc}
+            onChange={(e) => setEnrichedVoc(e.target.value)}
+            rows={10}
+          />
+
+          <div className="enriched-actions">
+            <button className="ghost-btn" onClick={backToClarify} type="button">
+              ← 返回修改答案
+            </button>
+            <button
+              className="primary-btn"
+              onClick={confirmEnriched}
+              disabled={analyzing}
+            >
+              {analyzing ? (
+                <>
+                  <span className="spinner" /> AI 生成检索关键词...
+                </>
+              ) : (
+                '确认，生成检索关键词 →'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VOC 探索阶段 */}
+      {phase === 'explore' && (
+        <ExploreStep
+          onSelect={(selectedVoc: string) => {
+            setVoc(selectedVoc)
+            setPhase('input')
+          }}
+          onBack={() => setPhase('input')}
+        />
       )}
 
       {/* 关键词确认/修改阶段 */}
