@@ -32,7 +32,7 @@ export default function ExploreStep({
           product: product.trim(),
           context: context.trim(),
           direction,
-          num_ideas: 10,
+          num_ideas: 12,
           seed: Date.now(),  // force fresh ideas each call
         }),
       })
@@ -55,7 +55,7 @@ export default function ExploreStep({
       <div className="step-hero">
         <h1 className="hero-title">Explore VOC Ideas</h1>
         <p className="hero-sub">
-          Describe your product and industry context. AI will generate 10 research
+          Describe your product and industry context. AI will generate 12 research
           questions — pick one to analyze.
         </p>
       </div>
@@ -123,7 +123,7 @@ export default function ExploreStep({
                 <span className="spinner" /> AI is generating research ideas...
               </>
             ) : (
-              'Generate 10 VOC Ideas →'
+              'Generate 12 VOC Ideas →'
             )}
           </button>
 
@@ -138,7 +138,7 @@ export default function ExploreStep({
       ) : (
         <div className="explore-results">
           <div className="explore-results-header">
-            <h2>10 Research Ideas for "{product}"</h2>
+            <h2>12 Research Ideas for "{product}"</h2>
             <p>Click one to use it as your VOC and start analysis.</p>
           </div>
 
@@ -167,7 +167,7 @@ export default function ExploreStep({
               {generating ? (
                 <><span className="spinner" /> Generating...</>
               ) : (
-                '🔄 Regenerate 10 Ideas'
+                '🔄 Regenerate 12 Ideas'
               )}
             </button>
             <button

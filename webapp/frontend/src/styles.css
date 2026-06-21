@@ -1137,21 +1137,22 @@
 }
 
 .voc-idea-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   margin-bottom: 16px;
 }
 
 .voc-idea-card {
   display: flex;
-  gap: 14px;
-  padding: 16px 18px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
   background: var(--bg-card);
+  flex-direction: column;
 }
 .voc-idea-card:hover {
   border-color: var(--accent);
@@ -1161,8 +1162,8 @@
 
 .voc-idea-number {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: var(--accent);
   color: #0a0e14;
@@ -1170,7 +1171,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .voc-idea-body {
