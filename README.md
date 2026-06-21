@@ -19,9 +19,9 @@
 </p>
 
 <h1 align="center">⚒️ FORGE AI</h1>
-<h3 align="center">AI-Native R&D for the World's Most Ambitious Materials Teams</h3>
+<h3 align="center">Revolutionize Your Innovation Process</h3>
 <h4 align="center" style="color:#8895A8;font-weight:400">
-  From university labs to R&D floors at the world's most ambitious materials companies.
+  From university labs to R&D floors — for every materials company, from startup to global enterprise.
 </h4>
 
 <p align="center">

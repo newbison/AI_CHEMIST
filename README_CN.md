@@ -19,9 +19,9 @@
 </p>
 
 <h1 align="center">⚒️ FORGE AI</h1>
-<h3 align="center">AI 原生研发平台 — 为全球最具雄心的材料团队而建</h3>
+<h3 align="center">Revolutionize Your Innovation Process</h3>
 <h4 align="center" style="color:#8895A8;font-weight:400">
-  从大学实验室到材料企业的研发中心，适用于任何规模的材料公司。
+  从大学实验室到企业研发中心 — 为每一家材料公司，从创业公司到全球企业。
 </h4>
 
 <p align="center">
