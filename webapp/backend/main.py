@@ -100,18 +100,21 @@ class GenerateRequest(BaseModel):
     patents: list[dict]  # 用户确认的入选专利列表
     fetch_details: bool = True  # 是否抓取每篇专利详情
     doc_analysis: str | None = None  # 用户上传文档的分析结果
+    language: str = "en"  # "en" or "zh"
 
 
 class ExportDocxRequest(BaseModel):
     report: str  # Markdown 格式的报告文本
     filename: str | None = None
     title: str | None = None
+    language: str = "en"
 
 
 class ExportPptxRequest(BaseModel):
     report: str  # Markdown 格式的报告文本
     filename: str | None = None
     title: str | None = None
+    language: str = "en"
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +383,7 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
     patents = req.patents
 
     # 2. 构建 prompt（详情在流内补）
-    system_prompt = build_system_prompt()
+    system_prompt = build_system_prompt(req.language)
 
     def event_stream():
         # 先推送元信息 —— 让前端立即建立连接、显示进度

@@ -57,6 +57,29 @@
   color: var(--text);
 }
 
+.header-lang {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.header-lang-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+.header-lang-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.header-lang-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(88,166,255,0.1);
+}
+
 .logo {
   display: flex;
   align-items: center;

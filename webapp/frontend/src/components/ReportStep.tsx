@@ -1,15 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { T } from '../i18n'
+import type { Lang } from '../i18n'
 import type { Patent } from '../types'
 
 export default function ReportStep({
+  lang,
   voc,
   patents,
   docAnalysis,
   onBack,
   onHome,
 }: {
+  lang: Lang
   voc: string
   patents: Patent[]
   docAnalysis?: string | null

@@ -1,6 +1,9 @@
+import { T } from '../i18n'
+import type { Lang } from '../i18n'
 import type { Patent, SearchStrategy } from '../types'
 
 export default function PatentsStep({
+  lang,
   voc,
   patents,
   selected,
@@ -10,6 +13,7 @@ export default function PatentsStep({
   onHome,
   onGenerate,
 }: {
+  lang: Lang
   voc: string
   patents: Patent[]
   selected: Patent[]

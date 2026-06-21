@@ -1,16 +1,20 @@
 import { useState, useRef, useCallback } from 'react'
+import { T } from '../i18n'
+import type { Lang } from '../i18n'
 import type { UploadDocResponse } from '../types'
 
 const API_BASE = 'http://localhost:8001'
 
 interface Props {
+  lang: Lang
   onContinue: (docAnalysis: string) => void
   onSkip: () => void
   onBack: () => void
   onHome: () => void
 }
 
-export default function DocumentStep({ onContinue, onSkip, onBack, onHome }: Props) {
+export default function DocumentStep({
+  lang, onContinue, onSkip, onBack, onHome }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [analysis, setAnalysis] = useState<UploadDocResponse | null>(null)

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Step, SearchStrategy } from './types'
+import type { Lang } from './i18n'
 import InputStep from './components/InputStep'
 import PatentsStep from './components/PatentsStep'
 import DocumentStep from './components/DocumentStep'
@@ -9,6 +10,7 @@ import './styles.css'
 
 export default function App() {
   const [step, setStep] = useState<Step>('input')
+  const [lang, setLang] = useState<Lang>('en')
   const [voc, setVoc] = useState('')
   const [patents, setPatents] = useState<import('./types').Patent[]>([])
   const [selectedPatents, setSelectedPatents] = useState<import('./types').Patent[]>([])
@@ -19,6 +21,8 @@ export default function App() {
     <div className="app">
       <Header
         step={step}
+        lang={lang}
+        setLang={setLang}
         onBack={step !== 'input' ? () => {
           if (step === 'patents') setStep('input')
           else if (step === 'report') setStep('patents')
@@ -36,6 +40,7 @@ export default function App() {
       <main className="main">
         {step === 'input' && (
           <InputStep
+            lang={lang}
             voc={voc}
             setVoc={setVoc}
             onSearched={(all, selected, strats) => {
@@ -48,6 +53,7 @@ export default function App() {
         )}
         {step === 'patents' && (
           <PatentsStep
+            lang={lang}
             voc={voc}
             patents={patents}
             selected={selectedPatents}
@@ -66,6 +72,7 @@ export default function App() {
         )}
         {step === 'report' && (
           <ReportStep
+            lang={lang}
             voc={voc}
             patents={selectedPatents}
             docAnalysis={docAnalysis}
@@ -82,6 +89,7 @@ export default function App() {
         )}
         {step === 'document' && (
           <DocumentStep
+            lang={lang}
             onContinue={(analysis) => {
               setDocAnalysis(analysis)
               setStep('report')

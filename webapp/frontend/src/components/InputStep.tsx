@@ -53,10 +53,12 @@ function vocTitle(voc: string): string {
 }
 
 export default function InputStep({
+  lang,
   voc,
   setVoc,
   onSearched,
 }: {
+  lang: import('../i18n').Lang
   voc: string
   setVoc: (v: string) => void
   onSearched: (all: Patent[], selected: Patent[], strategies: SearchStrategy[]) => void
@@ -511,6 +513,7 @@ export default function InputStep({
       {/* VOC 探索阶段 */}
       {phase === 'explore' && (
         <ExploreStep
+          lang={lang}
           onSelect={(selectedVoc: string) => {
             setVoc(selectedVoc)
             setPhase('input')

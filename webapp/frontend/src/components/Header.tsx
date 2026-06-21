@@ -1,21 +1,28 @@
 import type { Step } from '../types'
+import type { Lang } from '../i18n'
+import { T } from '../i18n'
 
-const STEPS: { key: Step; label: string; num: number }[] = [
-  { key: 'input', label: 'VOC 输入', num: 1 },
-  { key: 'patents', label: '专利确认', num: 2 },
-  { key: 'report', label: '报告生成', num: 3 },
+const STEP_KEYS: { key: Step; labelKey: keyof typeof T; num: number }[] = [
+  { key: 'input',    labelKey: 'stepInput',    num: 1 },
+  { key: 'patents',  labelKey: 'stepPatents',  num: 2 },
+  { key: 'report',   labelKey: 'stepReport',   num: 3 },
+  { key: 'document', labelKey: 'stepDocument', num: 4 },
 ]
 
 export default function Header({
   step,
+  lang,
+  setLang,
   onBack,
   onHome,
 }: {
   step: Step
+  lang: Lang
+  setLang: (l: Lang) => void
   onBack?: () => void
   onHome?: () => void
 }) {
-  const currentIndex = STEPS.findIndex((s) => s.key === step)
+  const currentIndex = STEP_KEYS.findIndex((s) => s.key === step)
 
   return (
     <header className="header">
@@ -24,12 +31,12 @@ export default function Header({
           {(onBack || onHome) && (
             <div className="header-nav">
               {onBack && (
-                <button className="header-nav-btn" onClick={onBack} title="Back">
-                  ← Back
+                <button className="header-nav-btn" onClick={onBack} title={T.headerBack[lang]}>
+                  {T.headerBack[lang]}
                 </button>
               )}
               {onHome && (
-                <button className="header-nav-btn" onClick={onHome} title="Home">
+                <button className="header-nav-btn" onClick={onHome} title={T.headerHome[lang]}>
                   🏠
                 </button>
               )}
@@ -41,7 +48,7 @@ export default function Header({
           </div>
         </div>
         <nav className="steps">
-          {STEPS.map((s, i) => (
+          {STEP_KEYS.map((s, i) => (
             <div
               key={s.key}
               className={`step ${i === currentIndex ? 'active' : ''} ${
@@ -49,11 +56,21 @@ export default function Header({
               }`}
             >
               <span className="step-num">{s.num}</span>
-              <span className="step-label">{s.label}</span>
-              {i < STEPS.length - 1 && <span className="step-line" />}
+              <span className="step-label">{T[s.labelKey][lang]}</span>
+              {i < STEP_KEYS.length - 1 && <span className="step-line" />}
             </div>
           ))}
         </nav>
+        <div className="header-lang">
+          <button
+            className={`header-lang-btn ${lang === 'en' ? 'active' : ''}`}
+            onClick={() => setLang('en')}
+          >EN</button>
+          <button
+            className={`header-lang-btn ${lang === 'zh' ? 'active' : ''}`}
+            onClick={() => setLang('zh')}
+          >中文</button>
+        </div>
       </div>
     </header>
   )

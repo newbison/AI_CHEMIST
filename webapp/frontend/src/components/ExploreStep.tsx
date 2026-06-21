@@ -1,10 +1,14 @@
 import { useState } from 'react'
+import { T } from '../i18n'
+import type { Lang } from '../i18n'
 import type { VocIdea, ExploreVocResponse } from '../types'
 
 export default function ExploreStep({
+  lang,
   onSelect,
   onBack,
 }: {
+  lang: Lang
   onSelect: (voc: string) => void
   onBack: () => void
 }) {
