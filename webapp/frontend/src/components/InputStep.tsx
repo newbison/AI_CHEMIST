@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { T } from '../i18n'
 import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse, ClarifyQuestion, ClarifyVocResponse, EnrichVocResponse } from '../types'
 import ExploreStep from './ExploreStep'
 
@@ -262,20 +263,15 @@ export default function InputStep({
     <div className="step-container">
       {phase === 'input' && (
         <div className="home-hero">
-          <h1 className="home-hero-title">FORGE AI</h1>
-          <p className="home-hero-tagline">Revolutionize Your Innovation Process</p>
-          <p className="home-hero-desc">
-            FORGE AI reads your research question, searches 6 global patent databases,
-            deep-reads every patent (Abstract + Claims + Description), extracts X-Y relationships
-            with evidence grading, maps competitors and white space, designs your 1st and 2nd DOE,
-            and generates a complete R&D report — in minutes, not days.
-          </p>
+          <h1 className="home-hero-title">{T.homeTitle[lang]}</h1>
+          <p className="home-hero-tagline">{T.homeTagline[lang]}</p>
+          <p className="home-hero-desc">{T.homeDesc[lang]}</p>
           <div className="home-hero-caps">
-            <span>🌍 6-Source Patent Search</span>
-            <span>🧬 X-Y Extraction</span>
-            <span>🎯 Competitor Intel</span>
-            <span>🧪 DOE Design</span>
-            <span>📊 Auto-Generated Report</span>
+            <span>{T.homeCap1[lang]}</span>
+            <span>{T.homeCap2[lang]}</span>
+            <span>{T.homeCap3[lang]}</span>
+            <span>{T.homeCap4[lang]}</span>
+            <span>{T.homeCap5[lang]}</span>
           </div>
         </div>
       )}
@@ -295,13 +291,13 @@ export default function InputStep({
         <div className="entry-cards">
           <div className="entry-card entry-card-primary" onClick={() => setPhase('input')}>
             <div className="entry-card-icon">📝</div>
-            <h3 className="entry-card-title">I have a research question</h3>
-            <p className="entry-card-desc">Enter your VOC and start the analysis pipeline</p>
+            <h3 className="entry-card-title">{T.entryCard1Title[lang]}</h3>
+            <p className="entry-card-desc">{T.entryCard1Desc[lang]}</p>
           </div>
           <div className="entry-card" onClick={() => setPhase('explore')}>
             <div className="entry-card-icon">💡</div>
-            <h3 className="entry-card-title">I need fresh ideas</h3>
-            <p className="entry-card-desc">AI generates research questions from your product and industry</p>
+            <h3 className="entry-card-title">{T.entryCard2Title[lang]}</h3>
+            <p className="entry-card-desc">{T.entryCard2Desc[lang]}</p>
           </div>
         </div>
       )}

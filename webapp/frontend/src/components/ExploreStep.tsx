@@ -21,7 +21,7 @@ export default function ExploreStep({
 
   async function handleGenerate() {
     if (!product.trim()) {
-      setError('Please enter a product category')
+      setError(T.exploreErrorEmpty[lang])
       return
     }
     setGenerating(true)
@@ -57,49 +57,46 @@ export default function ExploreStep({
   return (
     <div className="step-container">
       <div className="step-hero">
-        <h1 className="hero-title">Explore VOC Ideas</h1>
-        <p className="hero-sub">
-          Describe your product and industry context. AI will generate 12 research
-          questions — pick one to analyze.
-        </p>
+        <h1 className="hero-title">{T.exploreTitle[lang]}</h1>
+        <p className="hero-sub">{T.exploreSub[lang]}</p>
       </div>
 
       {ideas.length === 0 ? (
         <div className="form-block">
           <label className="form-label">
-            <span className="label-tag">Product</span>
-            Product Category
+            <span className="label-tag">{T.exploreProductLabel[lang]}</span>
+            {T.exploreProductLabel[lang]}
           </label>
           <input
             className="voc-input"
             value={product}
             onChange={(e) => setProduct(e.target.value)}
-            placeholder="e.g., UV-curable hard coats, Ti alloys for implants, PSA tapes for batteries..."
+            placeholder={T.exploreProductPlaceholder[lang]}
           />
 
           <label className="form-label" style={{ marginTop: '16px' }}>
-            <span className="label-tag">Context</span>
-            Industry Context (optional)
+            <span className="label-tag">{T.exploreContextLabel[lang]}</span>
+            {T.exploreContextLabel[lang]}
           </label>
           <textarea
             className="voc-input"
             value={context}
             onChange={(e) => setContext(e.target.value)}
-            placeholder="e.g., Our formulation yellows after 2 years. Competitor X launched a 5-year weatherable version."
+            placeholder={T.exploreContextPlaceholder[lang]}
             rows={3}
           />
 
           <label className="form-label" style={{ marginTop: '16px' }}>
-            <span className="label-tag">Direction</span>
-            Innovation Direction (optional)
+            <span className="label-tag">{T.exploreDirectionLabel[lang]}</span>
+            {T.exploreDirectionLabel[lang]}
           </label>
           <div className="num-select-group">
             {(['', 'next-gen', 'cost-down', 'adjacent'] as const).map((d) => {
               const labels: Record<string, string> = {
-                '': 'All directions',
-                'next-gen': 'Next-gen performance',
-                'cost-down': 'Cost-down',
-                'adjacent': 'Adjacent markets',
+                '': T.exploreDirAll[lang],
+                'next-gen': T.exploreDirNextGen[lang],
+                'cost-down': T.exploreDirCostDown[lang],
+                'adjacent': T.exploreDirAdjacent[lang],
               }
               return (
                 <button
@@ -124,10 +121,10 @@ export default function ExploreStep({
           >
             {generating ? (
               <>
-                <span className="spinner" /> AI is generating research ideas...
+                <span className="spinner" /> {T.exploreGenerating[lang]}
               </>
             ) : (
-              'Generate 12 VOC Ideas →'
+              T.exploreGenerate[lang]
             )}
           </button>
 
@@ -136,14 +133,14 @@ export default function ExploreStep({
             onClick={onBack}
             style={{ marginTop: '12px' }}
           >
-            ← Back
+            {T.exploreBack[lang]}
           </button>
         </div>
       ) : (
         <div className="explore-results">
           <div className="explore-results-header">
-            <h2>12 Research Ideas for "{product}"</h2>
-            <p>Click one to use it as your VOC and start analysis.</p>
+            <h2>{T.exploreResultsTitle[lang]} "{product}"</h2>
+            <p>{T.exploreResultsSub[lang]}</p>
           </div>
 
           <div className="voc-idea-list">
@@ -169,9 +166,9 @@ export default function ExploreStep({
               disabled={generating}
             >
               {generating ? (
-                <><span className="spinner" /> Generating...</>
+                <><span className="spinner" /> {T.exploreGenerating[lang]}</>
               ) : (
-                '🔄 Regenerate 12 Ideas'
+                T.exploreRegenerate[lang]
               )}
             </button>
             <button
@@ -181,7 +178,7 @@ export default function ExploreStep({
                 setError('')
               }}
             >
-              ← Try a different product
+              {T.exploreTryDifferent[lang]}
             </button>
           </div>
         </div>
