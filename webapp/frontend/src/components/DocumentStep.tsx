@@ -84,6 +84,9 @@ export default function DocumentStep({
         <p className="hero-sub">
           上传 PDF 或 Word 文档作为背景参考资料，系统将自动分析并融入报告。
         </p>
+        <button className="primary-btn doc-skip-btn" onClick={onSkip}>
+          跳过此步，直接生成报告 →
+        </button>
       </div>
 
       <div className="doc-upload-area">
@@ -182,19 +185,14 @@ export default function DocumentStep({
           <button className="ghost-btn" onClick={onBack}>← 返回专利列表</button>
           <button className="ghost-btn home-btn" onClick={onHome}>🏠 返回主页</button>
         </div>
-        <div className="step-nav-right">
-          <button className="ghost-btn" onClick={onSkip}>
-            跳过此步 →
+        {analysis && (
+          <button
+            className="primary-btn"
+            onClick={() => onContinue(analysis.analysis)}
+          >
+            确认并继续 →
           </button>
-          {analysis && (
-            <button
-              className="primary-btn"
-              onClick={() => onContinue(analysis.analysis)}
-            >
-              确认并继续 →
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
