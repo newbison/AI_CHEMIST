@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,9 +35,19 @@ from patent_search import (  # noqa: E402
 )
 from prompt_builder import build_system_prompt, build_user_prompt  # noqa: E402
 from llm_client import stream_report  # noqa: E402
+from doc_analyzer import (  # noqa: E402
+    analyze_document,
+    extract_text_from_docx,
+    extract_text_from_pdf,
+)
 from docx_export import markdown_to_docx  # noqa: E402
 from pptx_export import markdown_to_pptx, markdown_to_pptx_via_pptxgenjs  # noqa: E402
-from voc_analyzer import analyze_voc_to_strategies  # noqa: E402
+from voc_analyzer import (  # noqa: E402
+    analyze_voc_to_strategies,
+    clarify_voc,
+    enrich_voc,
+    generate_voc_ideas,
+)
 
 app = FastAPI(title="R&D Intelligence Report Generator", version="1.0.0")
 
@@ -67,10 +77,29 @@ class AnalyzeVocRequest(BaseModel):
     num_angles: int = 4
 
 
+class ClarifyVocRequest(BaseModel):
+    voc: str
+    num_questions: int = 4
+
+
+class EnrichVocRequest(BaseModel):
+    original_voc: str
+    questions: list[dict]
+    answers: dict[str, str]
+
+
+class ExploreVocRequest(BaseModel):
+    product: str
+    context: str = ""
+    direction: str = ""  # "next-gen" | "cost-down" | "adjacent" | ""
+    num_ideas: int = 10
+
+
 class GenerateRequest(BaseModel):
     voc: str
     patents: list[dict]  # 用户确认的入选专利列表
     fetch_details: bool = True  # 是否抓取每篇专利详情
+    doc_analysis: str | None = None  # 用户上传文档的分析结果
 
 
 class ExportDocxRequest(BaseModel):
@@ -115,6 +144,136 @@ def analyze_voc(req: AnalyzeVocRequest) -> dict:
     return {
         "strategies": strategies,
         "fallback_keywords": "",
+        "warning": "",
+    }
+
+
+@app.post("/api/clarify-voc")
+def clarify_voc_endpoint(req: ClarifyVocRequest) -> dict:
+    """分析 VOC，生成澄清选择题供用户作答。
+
+    返回 3-5 道单选题，帮助用户明确 VOC 中的信息缺口和矛盾。
+    """
+    result = clarify_voc(req.voc, num_questions=req.num_questions)
+    if not result["questions"]:
+        return {
+            "questions": [],
+            "analysis": "",
+            "warning": "VOC 澄清问题生成失败，可直接生成检索关键词",
+        }
+    return {
+        "questions": result["questions"],
+        "analysis": result["analysis"],
+        "warning": "",
+    }
+
+
+@app.post("/api/upload-doc")
+async def upload_doc(
+    file: UploadFile = File(...),
+    doc_name: str = Form(""),
+) -> dict:
+    """接收用户上传的 PDF/Word 文件，提取文本并调用 LLM 生成技术分析。
+
+    请求：multipart/form-data
+        - file: 文件（二进制）
+        - doc_name: 文件名（可选）
+
+    响应：{analysis, doc_name, text_preview}
+    """
+    from fastapi.responses import JSONResponse
+
+    if not doc_name:
+        doc_name = file.filename or "未知文件"
+
+    # 检查文件类型
+    ALLOWED_TYPES = {
+        "application/pdf": "pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    }
+    content_type = file.content_type or ""
+    file_ext = ALLOWED_TYPES.get(content_type)
+
+    # 尝试从文件名判断类型
+    if not file_ext and file.filename:
+        ext = file.filename.lower().split(".")[-1]
+        if ext in ("pdf", "docx"):
+            file_ext = ext
+
+    if not file_ext:
+        raise HTTPException(
+            status_code=400,
+            detail="不支持的文件格式，仅支持 PDF 和 Word (.docx)",
+        )
+
+    # 读取文件内容
+    file_bytes = await file.read()
+
+    # 检查文件大小（10MB）
+    MAX_SIZE = 10 * 1024 * 1024
+    if len(file_bytes) > MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="文件超过 10MB 限制",
+        )
+
+    # 提取文本
+    try:
+        if file_ext == "pdf":
+            text = extract_text_from_pdf(file_bytes)
+        else:
+            text = extract_text_from_docx(file_bytes)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=422,
+            content={"error": str(e), "doc_name": doc_name, "text_preview": ""},
+        )
+
+    # 文本预览（取前500字符）
+    text_preview = text[:500] + ("..." if len(text) > 500 else "")
+
+    # 调用 LLM 分析
+    analysis = analyze_document(text, doc_name)
+
+    return {
+        "analysis": analysis,
+        "doc_name": doc_name,
+        "text_preview": text_preview,
+    }
+
+
+@app.post("/api/enrich-voc")
+def enrich_voc_endpoint(req: EnrichVocRequest) -> dict:
+    """根据用户对澄清问题的答案，生成增强版 VOC。
+
+    把原始 VOC 和用户答案合并，生成结构化的增强版 VOC。
+    """
+    result = enrich_voc(req.original_voc, req.questions, req.answers)
+    return {
+        "enriched_voc": result["enriched_voc"],
+        "changes": result["changes"],
+    }
+
+
+@app.post("/api/explore-voc")
+def explore_voc(req: ExploreVocRequest) -> dict:
+    """Generate VOC ideas from product category + industry context."""
+    ideas = generate_voc_ideas(
+        req.product,
+        context=req.context,
+        direction=req.direction,
+        num_ideas=req.num_ideas,
+    )
+    if not ideas:
+        return {
+            "ideas": [],
+            "warning": (
+                "AI failed to generate ideas. Please try a more specific "
+                "product category, or enter your own VOC."
+            ),
+        }
+    return {
+        "ideas": [{"voc": i["voc"], "why": i["why"]} for i in ideas],
         "warning": "",
     }
 
@@ -268,7 +427,7 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
         else:
             print(f"[generate] fetch_details=False, 跳过详情抓取")
 
-        user_prompt = build_user_prompt(req.voc, working_patents)
+        user_prompt = build_user_prompt(req.voc, working_patents, doc_analysis=req.doc_analysis)
 
         # 诊断：确认详情文本确实进了 prompt
         detail_count = user_prompt.count('[Abstract]')
