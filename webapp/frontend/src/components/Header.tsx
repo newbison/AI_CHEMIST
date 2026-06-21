@@ -36,8 +36,8 @@ export default function Header({
             </div>
           )}
           <div className="logo">
-            <span className="logo-mark">⬡</span>
-            <span className="logo-text">R&D INTELLIGENCE</span>
+            <span className="logo-mark">⚒️</span>
+            <span className="logo-text">FORGE AI</span>
           </div>
         </div>
         <nav className="steps">
