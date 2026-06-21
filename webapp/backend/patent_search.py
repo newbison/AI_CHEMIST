@@ -45,6 +45,12 @@ BROWSER_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+# 专利数据源代理（Clash/V2Ray 本地代理）
+# 默认 http://127.0.0.1:7890（Clash 默认端口）
+# 设为空字符串则禁用代理（直连，国内会 503）
+# 可通过环境变量 PATENT_PROXY 覆盖
+_PATENT_PROXY = os.environ.get("PATENT_PROXY", "http://127.0.0.1:7890") or None
+
 # EPO OPS API — 免费注册 developers.epo.org 获取
 EPO_TOKEN_URL = "https://ops.epo.org/3.2/auth/accesstoken"
 EPO_SEARCH_URL = "https://ops.epo.org/3.2/rest-services/published-data/search/biblio/"
@@ -182,7 +188,7 @@ def search_patentsview(
         "o": json.dumps({"per_page": min(num, 50), "page": 1}),
     }
     try:
-        with httpx.Client(headers=BROWSER_HEADERS, timeout=timeout) as client:
+        with httpx.Client(headers=BROWSER_HEADERS, timeout=timeout, proxy=_PATENT_PROXY) as client:
             resp = client.get(url, params=params, follow_redirects=True)
             resp.raise_for_status()
             data = resp.json()
@@ -235,6 +241,7 @@ def search_google_patents(
         with httpx.Client(
             headers={**BROWSER_HEADERS, "Referer": "https://patents.google.com/"},
             timeout=timeout,
+            proxy=_PATENT_PROXY,
         ) as client:
             resp = client.get(url, params=params)
             if resp.status_code == 503:
@@ -293,7 +300,7 @@ def search_google_scholar(
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
     try:
-        with httpx.Client(headers=headers, timeout=timeout, follow_redirects=True) as client:
+        with httpx.Client(headers=headers, timeout=timeout, follow_redirects=True, proxy=_PATENT_PROXY) as client:
             resp = client.get(url, params=params)
             resp.raise_for_status()
             html_text = resp.text
@@ -308,16 +315,17 @@ def _parse_scholar_html(html_text: str, keywords: str) -> list[Patent]:
     """解析 Google Scholar 搜索结果 HTML，提取专利信息。"""
     patents: list[Patent] = []
 
-    # Scholar 结果块：<div class="gs_r gs_or gs_scl"> ... </div>
-    # 每个块包含一个搜索结果
+    # Scholar 结果块：<div class="gs_r gs_or gs_scl" data-cid="..."> ... </div>
+    # 注意：class 后面可能有 data-cid 等其他属性，不能要求 > 紧跟 class
+    # 用非贪婪匹配到下一个 gs_r 块或页面底部
     result_blocks = re.findall(
-        r'<div\s+class="gs_r[^"]*"\s*>(.*?)</div>\s*(?=<div\s+class="gs_r[^"]*"\s*>|</div>\s*</div>\s*<div\s+id="gs_ft")',
+        r'<div\s+class="gs_r\s+gs_or\s+gs_scl"[^>]*>(.*?)(?=<div\s+class="gs_r\s+gs_or\s+gs_scl"|<div\s+id="gs_nmd"|<div\s+id="gs_ft")',
         html_text, re.DOTALL,
     )
     if not result_blocks:
-        # 备选：匹配整个 <div class="gs_r"> ... </div></div> 模式
+        # 备选：更宽松的匹配
         result_blocks = re.findall(
-            r'<div\s+class="gs_r\s+gs_or\s+gs_scl">(.*?)</div>\s*</div>\s*</div>',
+            r'<div\s+class="gs_r[^"]*"[^>]*>(.*?)(?=<div\s+class="gs_r[^"]*"|<div\s+id="gs_ft")',
             html_text, re.DOTALL,
         )
 
@@ -338,19 +346,27 @@ def _parse_scholar_html(html_text: str, keywords: str) -> list[Patent]:
         )
         meta = _clean_html(meta_match.group(1)) if meta_match else ""
 
-        # 从 meta 中提取专利号（如 US11685841B2, CN114567890A）
+        # 提取专利号：优先从 patents.google.com 链接或 PDF 链接提取
+        # Scholar meta 里是 "US Patent App. 18/400,360" 格式（申请号，非专利号）
+        # 真正的专利号在 href="https://patents.google.com/patent/US20240136686A1/en" 里
         patent_num = ""
         country = ""
-        pat_match = re.search(r'([A-Z]{2})\s*(\d{6,12})\s*([AB]\d?|B\d?)', meta)
-        if pat_match:
-            country = pat_match.group(1)
-            patent_num = f"{pat_match.group(1)}{pat_match.group(2)}{pat_match.group(3)}"
+        pat_link = re.search(
+            r'href="https?://patents\.google\.com/patent/([A-Z]{2}\d{6,12}[AB]\d?)/en"',
+            block, re.IGNORECASE,
+        )
+        if pat_link:
+            patent_num = pat_link.group(1)
+            country = patent_num[:2]
         else:
-            # 尝试更宽松的匹配
-            pat_match2 = re.search(r'([A-Z]{2})(\d{7,12})', meta)
-            if pat_match2:
-                country = pat_match2.group(1)
-                patent_num = f"{pat_match2.group(1)}{pat_match2.group(2)}"
+            # 备选：PDF 链接 patentimages.../{num}.pdf
+            pdf_link = re.search(
+                r'href="https?://patentimages[^"]*/([A-Z]{2}\d{6,12}[AB]\d?)\.pdf"',
+                block, re.IGNORECASE,
+            )
+            if pdf_link:
+                patent_num = pdf_link.group(1)
+                country = patent_num[:2]
 
         # 提取片段：<div class="gs_rs">
         snippet_match = re.search(
@@ -361,25 +377,24 @@ def _parse_scholar_html(html_text: str, keywords: str) -> list[Patent]:
 
         # 提取链接
         url_link = ""
-        link_match = re.search(
-            r'<h3\s+class="gs_rt"[^>]*>.*?<a\s+href="([^"]+)"',
-            block, re.DOTALL | re.IGNORECASE,
-        )
-        if link_match:
-            url_link = link_match.group(1)
-            # Scholar 链接可能是 /scholar?q=... 的相对路径
-            if url_link.startswith("/"):
-                url_link = f"https://scholar.google.com{url_link}"
-
         if patent_num:
             url_link = f"https://patents.google.com/patent/{patent_num}/en"
+        else:
+            link_match = re.search(
+                r'<h3\s+class="gs_rt"[^>]*>.*?<a\s+href="([^"]+)"',
+                block, re.DOTALL | re.IGNORECASE,
+            )
+            if link_match:
+                url_link = link_match.group(1)
+                if url_link.startswith("/"):
+                    url_link = f"https://scholar.google.com{url_link}"
 
         # 提取 assignee：从 meta 中取 "- " 之后的部分
         assignee = ""
         if " - " in meta:
             assignee = meta.rsplit(" - ", 1)[-1].strip()
-            # 去掉末尾的专利号
-            assignee = re.sub(r'\s*[A-Z]{2}\d{6,12}[AB]\d?\s*$', '', assignee).strip()
+            # 去掉末尾的 "Google Patents" 等来源标识
+            assignee = re.sub(r'\s*Google\s+Patents?\s*$', '', assignee, flags=re.IGNORECASE).strip()
 
         # 提取日期
         pub_date = ""
@@ -432,7 +447,7 @@ def _get_epo_token() -> str | None:
     credentials = f"{key}:{secret}"
     encoded = base64.b64encode(credentials.encode()).decode()
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=10.0, proxy=_PATENT_PROXY) as client:
             resp = client.post(
                 EPO_TOKEN_URL,
                 data={"grant_type": "client_credentials"},
@@ -483,6 +498,7 @@ def search_epo_ops(
                 "User-Agent": BROWSER_HEADERS["User-Agent"],
             },
             timeout=timeout,
+            proxy=_PATENT_PROXY,
         ) as client:
             resp = client.get(url, params=params)
             if resp.status_code == 403:
@@ -633,6 +649,7 @@ def search_wipo_patentscope(
             },
             timeout=timeout,
             follow_redirects=True,
+            proxy=_PATENT_PROXY,
         ) as client:
             # Step 1: GET 搜索页面，获取 JSF ViewState 和 cookies
             search_url = "https://patentscope.wipo.int/search/en/search.jsf"
@@ -851,7 +868,10 @@ def search_cn_patents(keywords: str, *, num: int = 20, timeout: float = 12.0) ->
 def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
     """抓取单篇专利的全文文本。
 
-    优先 Google Patents，不可达时回退到 EPO Espacenet。
+    优先级：
+    1. Google Patents（全文 Claims+Description，国内常 503）
+    2. EPO Espacenet（全文，国内常 403）
+    3. Google Scholar 按专利号搜索（仅摘要，国内可达的兜底）
     """
     num_clean = patent_number.strip()
 
@@ -861,6 +881,7 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
         with httpx.Client(
             headers={**BROWSER_HEADERS, "Referer": "https://patents.google.com/"},
             timeout=timeout,
+            proxy=_PATENT_PROXY,
         ) as client:
             resp = client.get(url)
             resp.raise_for_status()
@@ -880,6 +901,7 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
         with httpx.Client(
             headers={**BROWSER_HEADERS, "Referer": "https://worldwide.espacenet.com/"},
             timeout=timeout,
+            proxy=_PATENT_PROXY,
         ) as client:
             resp = client.get(epo_url)
             if resp.status_code >= 400:
@@ -895,6 +917,21 @@ def fetch_patent_detail(patent_number: str, *, timeout: float = 6.0) -> str:
                 print(f"[detail] WARN EPO Espacenet {num_clean}: HTML parsed but empty")
     except Exception as e:
         print(f"[detail] FAIL EPO Espacenet {num_clean}: {type(e).__name__}: {e}")
+
+    # 路径 3：Google Scholar 按专利号搜索（兜底，仅摘要）
+    # 当 Google Patents 503 + EPO 403 时，用 Scholar 搜专利号能拿到摘要
+    try:
+        scholar_pats = search_google_scholar(num_clean, num=3, timeout=8.0)
+        for p in scholar_pats:
+            if p.patent_number == num_clean and p.snippet:
+                print(f"[detail] OK Google Scholar {num_clean}: {len(p.snippet)} chars (摘要兜底)")
+                return f"[Abstract] {p.snippet}"
+        # Scholar 没精确匹配，但有结果时也返回第一条摘要
+        if scholar_pats and scholar_pats[0].snippet:
+            print(f"[detail] OK Google Scholar {num_clean} (模糊匹配 {scholar_pats[0].patent_number}): {len(scholar_pats[0].snippet)} chars")
+            return f"[Abstract] {scholar_pats[0].snippet}"
+    except Exception as e:
+        print(f"[detail] FAIL Google Scholar {num_clean}: {type(e).__name__}: {e}")
 
     print(f"[detail] FAIL ALL {num_clean}: all sources failed")
     return ""
@@ -1111,17 +1148,24 @@ def search_by_strategies(
         # 角度间间隔 2 秒（第一个不等待），降低 503 风险
         if i > 0:
             time.sleep(0.5)
-        # Google Patents 快速探测（5s超时，被墙时快速失败）
+        # 主源：Google Patents 快速探测（5s超时，被墙时快速失败）
         hits = search_google_patents(query, num=num_per_angle, country="US", timeout=5.0)
         if len(hits) < 3:
             time.sleep(0.5)
             hits = search_google_patents(query, num=num_per_angle, country="", timeout=5.0)
 
+        # 备份源：Google Patents 不可达（503/被墙）时用 Google Scholar 兜底
+        if not hits:
+            print(f"[search_by_strategies] Google Patents 失败，角度 {i+1} 回退 Google Scholar")
+            scholar_hits = search_google_scholar(query, num=num_per_angle, timeout=8.0)
+            if scholar_hits:
+                hits = scholar_hits
+
         if not hits:
             consecutive_failures += 1
             # 第 1 个角度失败 → Google 被墙，立即回退
             if consecutive_failures >= 1 and not patent_map:
-                print(f"[search_by_strategies] 角度 {i+1} 失败，Google Patents 被墙/限流，立即回退")
+                print(f"[search_by_strategies] 角度 {i+1} 失败，Google Patents+Scholar 均不可达，立即回退")
                 return []
         else:
             consecutive_failures = 0

@@ -33,6 +33,7 @@ export default function ExploreStep({
           context: context.trim(),
           direction,
           num_ideas: 10,
+          seed: Date.now(),  // force fresh ideas each call
         }),
       })
       if (!resp.ok) throw new Error(`Generation failed: ${resp.status}`)
@@ -157,16 +158,28 @@ export default function ExploreStep({
             ))}
           </div>
 
-          <button
-            className="ghost-btn"
-            onClick={() => {
-              setIdeas([])
-              setError('')
-            }}
-            style={{ marginTop: '16px' }}
-          >
-            ← Try a different product
-          </button>
+          <div className="explore-results-actions">
+            <button
+              className="primary-btn"
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? (
+                <><span className="spinner" /> Generating...</>
+              ) : (
+                '🔄 Regenerate 10 Ideas'
+              )}
+            </button>
+            <button
+              className="ghost-btn"
+              onClick={() => {
+                setIdeas([])
+                setError('')
+              }}
+            >
+              ← Try a different product
+            </button>
+          </div>
         </div>
       )}
     </div>

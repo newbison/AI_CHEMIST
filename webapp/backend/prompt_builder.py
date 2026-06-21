@@ -99,7 +99,11 @@ def _build_skill_reference() -> str:
     return "\n\n---\n\n".join(parts)
 
 
-def build_user_prompt(voc: str, patents: list[dict]) -> str:
+def build_user_prompt(
+    voc: str,
+    patents: list[dict],
+    doc_analysis: str | None = None,
+) -> str:
     """构建 user prompt：任务指令 → VOC → 入选专利 → 参考材料。
 
     任务指令放最前面，确保模型带着目的去读专利详情。
@@ -139,6 +143,10 @@ def build_user_prompt(voc: str, patents: list[dict]) -> str:
     # ---- VOC ----
     parts.append(f"# 用户 VOC\n\n{voc}\n")
 
+    # ---- 文档分析（用户上传的参考资料）----
+    if doc_analysis:
+        parts.append(f"# 用户上传的参考资料分析\n\n{doc_analysis}\n")
+
     # ---- 入选专利（详情文本附在每篇后面） ----
     # 智能截断：优先保留 Abstract + Claims，Description 按剩余预算截断
     # 专利多时压缩 Description 而非砍掉 Claims
@@ -166,6 +174,11 @@ def build_user_prompt(voc: str, patents: list[dict]) -> str:
         if has_detail:
             detail = _truncate_detail(p['detail_text'], desc_budget)
             parts.append(f"- 详情文本:\n{detail}\n")
+
+    # ---- 参考材料（skill 文件放末尾） ----
+    parts.append(_build_skill_reference())
+
+    return "\n\n".join(parts)
 
 
 def _truncate_detail(detail_text: str, desc_budget: int) -> str:
@@ -200,11 +213,6 @@ def _truncate_detail(detail_text: str, desc_budget: int) -> str:
         truncated_desc += f"...(省略 {omitted} 字符)"
 
     return before_desc + "\n" + truncated_desc
-
-    # ---- 参考材料（skill 文件放末尾） ----
-    parts.append(_build_skill_reference())
-
-    return "\n\n".join(parts)
 
 
 if __name__ == "__main__":

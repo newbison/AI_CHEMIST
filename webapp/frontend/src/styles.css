@@ -1190,6 +1190,14 @@
   line-height: 1.4;
 }
 
+.explore-results-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* ===== Document Upload Step ===== */
 .doc-upload-area {
   margin-top: 24px;

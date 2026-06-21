@@ -6,11 +6,13 @@ import type { Patent } from '../types'
 export default function ReportStep({
   voc,
   patents,
+  docAnalysis,
   onBack,
   onHome,
 }: {
   voc: string
   patents: Patent[]
+  docAnalysis?: string | null
   onBack: () => void
   onHome: () => void
 }) {
@@ -39,7 +41,7 @@ export default function ReportStep({
       const resp = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voc, patents, fetch_details: true }),
+        body: JSON.stringify({ voc, patents, fetch_details: true, doc_analysis: docAnalysis }),
         signal: controller.signal,
       })
       if (!resp.ok) throw new Error(`生成失败: ${resp.status}`)

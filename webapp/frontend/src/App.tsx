@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Step, SearchStrategy } from './types'
 import InputStep from './components/InputStep'
 import PatentsStep from './components/PatentsStep'
+import DocumentStep from './components/DocumentStep'
 import ReportStep from './components/ReportStep'
 import Header from './components/Header'
 import './styles.css'
@@ -12,6 +13,7 @@ export default function App() {
   const [patents, setPatents] = useState<import('./types').Patent[]>([])
   const [selectedPatents, setSelectedPatents] = useState<import('./types').Patent[]>([])
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
+  const [docAnalysis, setDocAnalysis] = useState<string | null>(null)
 
   return (
     <div className="app">
@@ -44,13 +46,35 @@ export default function App() {
               setSelectedPatents([])
               setStrategies([])
             }}
-            onGenerate={() => setStep('report')}
+            onGenerate={() => setStep('document')}
           />
         )}
         {step === 'report' && (
           <ReportStep
             voc={voc}
             patents={selectedPatents}
+            docAnalysis={docAnalysis}
+            onBack={() => setStep('document')}
+            onHome={() => {
+              setStep('input')
+              setVoc('')
+              setPatents([])
+              setSelectedPatents([])
+              setStrategies([])
+              setDocAnalysis(null)
+            }}
+          />
+        )}
+        {step === 'document' && (
+          <DocumentStep
+            onContinue={(analysis) => {
+              setDocAnalysis(analysis)
+              setStep('report')
+            }}
+            onSkip={() => {
+              setDocAnalysis(null)
+              setStep('report')
+            }}
             onBack={() => setStep('patents')}
             onHome={() => {
               setStep('input')
@@ -58,6 +82,7 @@ export default function App() {
               setPatents([])
               setSelectedPatents([])
               setStrategies([])
+              setDocAnalysis(null)
             }}
           />
         )}
