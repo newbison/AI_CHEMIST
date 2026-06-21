@@ -13,7 +13,7 @@ Combine patent, internal, benchmark, and literature evidence into a structured X
    - material composition
    - structure / architecture
    - process condition
-   - treatment / aging / sterilization
+   - treatment / aging / post-processing
    - use-condition challenge
 5. Group Ys by CTQ.
 6. Identify recurring relationships.

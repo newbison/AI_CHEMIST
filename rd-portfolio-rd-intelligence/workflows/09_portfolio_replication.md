@@ -53,7 +53,7 @@ Use this matrix:
 - X-Y relationships
 - design rules
 - process windows
-- aging / sterilization assumptions
+- aging / post-processing assumptions
 - performance tradeoffs
 
 ## Portfolio-Specific Setup Checklist

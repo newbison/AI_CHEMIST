@@ -38,7 +38,7 @@ Usability Y
 
 Reliability / durability Y
 - aging stability
-- sterilization stability
+- post-processing stability
 - edge lift
 - leakage
 - delamination

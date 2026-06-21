@@ -1,21 +1,21 @@
 # Example Patent Extraction Mini-Demo
 
 ## Patent Context
-A patent discloses a breathable adhesive dressing with examples varying adhesive coat weight and backing film thickness.
+A patent discloses a UV-curable hard coat for polycarbonate with examples varying oligomer molecular weight and silicone content.
 
 ## Extracted Xs
 | X | Category | Range | Tested? |
 |---|---|---:|---|
-| Adhesive coat weight | Structure/process | 25-55 gsm | Yes |
-| Backing film thickness | Structure | 15-35 µm | Yes |
-| Crosslinker level | Composition | 0.2-0.8% | Yes |
+| Oligomer molecular weight | Composition | 500-2000 Da | Yes |
+| Silicone content | Composition | 5-20% | Yes |
+| UV dose | Process | 500-2000 mJ/cm² | Yes |
 
 ## Extracted Ys
 | Y | Unit | Method | Direction |
 |---|---|---|---|
-| Peel adhesion | N/25 mm | 180° peel on steel | within_range |
-| MVTR | g/m²/24h | cup method | higher_better |
-| Residue | score | visual rating | lower_better |
+| Pencil hardness | H scale | ASTM D3363 | higher_better |
+| QUV ΔE | — | ASTM G154 5000h | lower_better |
+| Crosslink density | mol/cm³ | DMA | higher_better |
 
 ## Relationship Statement
-Within Examples 1-5, adhesive coat weight from 25-55 gsm is associated with increased peel adhesion. MVTR relationship is unclear because backing film thickness also changes. Evidence level 3 due to confounding. Confidence medium.
+Within Examples 1-5, silicone content from 5-20% is associated with improved weatherability but reduced hardness. The tradeoff is modulated by UV dose. Evidence level 4 due to controlled experiments. Confidence high.

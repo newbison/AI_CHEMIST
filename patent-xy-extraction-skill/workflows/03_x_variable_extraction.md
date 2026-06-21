@@ -36,7 +36,7 @@ Process X
 - mixing order
 - pressure
 - line speed
-- sterilization method
+- post-processing method
 - aging condition
 
 Use-condition X

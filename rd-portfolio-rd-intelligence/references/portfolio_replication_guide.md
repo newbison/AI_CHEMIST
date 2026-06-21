@@ -31,7 +31,7 @@
 - performance targets
 - process windows
 - aging assumptions
-- sterilization effects
+- post-processing effects
 - benchmark relevance
 
 ## Replication Checklist
