@@ -6,7 +6,6 @@ const STEP_KEYS: { key: Step; labelKey: keyof typeof T; num: number }[] = [
   { key: 'input',    labelKey: 'stepInput',    num: 1 },
   { key: 'patents',  labelKey: 'stepPatents',  num: 2 },
   { key: 'report',   labelKey: 'stepReport',   num: 3 },
-  { key: 'document', labelKey: 'stepDocument', num: 4 },
 ]
 
 export default function Header({
