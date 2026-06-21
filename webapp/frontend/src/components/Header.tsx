@@ -6,15 +6,39 @@ const STEPS: { key: Step; label: string; num: number }[] = [
   { key: 'report', label: '报告生成', num: 3 },
 ]
 
-export default function Header({ step }: { step: Step }) {
+export default function Header({
+  step,
+  onBack,
+  onHome,
+}: {
+  step: Step
+  onBack?: () => void
+  onHome?: () => void
+}) {
   const currentIndex = STEPS.findIndex((s) => s.key === step)
 
   return (
     <header className="header">
       <div className="header-inner">
-        <div className="logo">
-          <span className="logo-mark">⬡</span>
-          <span className="logo-text">R&D INTELLIGENCE</span>
+        <div className="header-left">
+          {(onBack || onHome) && (
+            <div className="header-nav">
+              {onBack && (
+                <button className="header-nav-btn" onClick={onBack} title="Back">
+                  ← Back
+                </button>
+              )}
+              {onHome && (
+                <button className="header-nav-btn" onClick={onHome} title="Home">
+                  🏠
+                </button>
+              )}
+            </div>
+          )}
+          <div className="logo">
+            <span className="logo-mark">⬡</span>
+            <span className="logo-text">R&D INTELLIGENCE</span>
+          </div>
         </div>
         <nav className="steps">
           {STEPS.map((s, i) => (

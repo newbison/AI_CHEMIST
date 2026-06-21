@@ -32,6 +32,31 @@
   justify-content: space-between;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-nav-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+.header-nav-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .logo {
   display: flex;
   align-items: center;

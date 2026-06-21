@@ -17,7 +17,22 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header step={step} />
+      <Header
+        step={step}
+        onBack={step !== 'input' ? () => {
+          if (step === 'patents') setStep('input')
+          else if (step === 'report') setStep('patents')
+          else if (step === 'document') setStep('input')
+        } : undefined}
+        onHome={step !== 'input' ? () => {
+          setStep('input')
+          setVoc('')
+          setPatents([])
+          setSelectedPatents([])
+          setStrategies([])
+          setDocAnalysis(null)
+        } : undefined}
+      />
       <main className="main">
         {step === 'input' && (
           <InputStep
