@@ -258,13 +258,35 @@ export default function InputStep({
 
   return (
     <div className="step-container">
-      <div className="step-hero">
-        <h1 className="hero-title">输入客户需求</h1>
-        <p className="hero-sub">
-          输入 VOC（Voice of Customer），AI 会先分析 VOC 拆解出多个技术角度并生成英文检索关键词，
-          供您确认或修改后再联网检索专利，最终生成完整 R&D 智能报告。
-        </p>
-      </div>
+      {phase === 'input' && (
+        <div className="home-hero">
+          <h1 className="home-hero-title">FORGE AI</h1>
+          <p className="home-hero-tagline">Revolutionize Your Innovation Process</p>
+          <p className="home-hero-desc">
+            FORGE AI reads your research question, searches 6 global patent databases,
+            deep-reads every patent (Abstract + Claims + Description), extracts X-Y relationships
+            with evidence grading, maps competitors and white space, designs your 1st and 2nd DOE,
+            and generates a complete R&D report — in minutes, not days.
+          </p>
+          <div className="home-hero-caps">
+            <span>🌍 6-Source Patent Search</span>
+            <span>🧬 X-Y Extraction</span>
+            <span>🎯 Competitor Intel</span>
+            <span>🧪 DOE Design</span>
+            <span>📊 Auto-Generated Report</span>
+          </div>
+        </div>
+      )}
+
+      {phase !== 'input' && (
+        <div className="step-hero">
+          <h1 className="hero-title">输入客户需求</h1>
+          <p className="hero-sub">
+            输入 VOC（Voice of Customer），AI 会先分析 VOC 拆解出多个技术角度并生成英文检索关键词，
+            供您确认或修改后再联网检索专利，最终生成完整 R&D 智能报告。
+          </p>
+        </div>
+      )}
 
       {/* 双入口：用户选路径 */}
       {phase === 'input' && (
