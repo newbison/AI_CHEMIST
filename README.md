@@ -1,3 +1,12 @@
+---
+title: FORGE AI
+emoji: ⚒️
+colorFrom: indigo
+colorTo: gray
+sdk: docker
+pinned: false
+---
+
 <p align="right">
   <b>English</b> · <a href="README_CN.md">中文</a>
 </p>
