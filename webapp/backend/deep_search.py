@@ -356,6 +356,7 @@ def extract_new_terms(
         temperature=0.2,
         max_tokens=2048,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
     data = _parse_json_safe(raw)
@@ -488,6 +489,7 @@ def extract_ctq_single(patent_number: str, full_text: str) -> dict:
         temperature=0.1,
         max_tokens=512,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
     data = _parse_json_safe(raw)
@@ -504,8 +506,9 @@ select the 30-50 most relevant patents worth reading in full text.
 
 Selection criteria (in priority order):
 1. Patent mentions QUANTITATIVE performance metrics (e.g. "<30% vol", ">3000 g/m²/24h")
-2. Patent is from a market-leading company
-3. Patent is within the last 5 years
+2. Patent is from a market-leading company in this field
+3. Prefer patents from 2000 onwards — older patents (especially expired ones) often
+   contain foundational data and have ZERO FTO risk, making them highly valuable
 4. EXCLUDE: pure method/equipment patents (no material/product composition parameters)
 5. EXCLUDE: patents whose snippet contains zero numerical values
 
@@ -530,6 +533,7 @@ def prescreen_patents(
         temperature=0.1,
         max_tokens=1024,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
     data = _parse_json_safe(raw) or {}
@@ -658,6 +662,7 @@ def run_map_reduce_pipeline(
         temperature=0.2,
         max_tokens=4096,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
     comparison = _parse_json_safe(raw) or {}

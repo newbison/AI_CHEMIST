@@ -159,12 +159,43 @@ export default function ReportStep({
     }
   }, [report])
 
+  /** 从报告标题/VOC 生成安全的项目文件名 */
+  function getProjectFilename(ext: string): string {
+    const date = new Date().toISOString().slice(0, 10)
+    // 1. 用动态提取的报告标题
+    if (reportTitle) {
+      const safe = reportTitle
+        .replace(/^#+\s*/, '')           // 去掉 markdown 标题标记
+        .replace(/[\\/:*?"<>|]/g, '')    // 去掉 Windows 非法文件名字符
+        .replace(/\s+/g, '_')            // 空格 → 下划线
+        .replace(/_+/g, '_')             // 多下划线合并
+        .replace(/^_|_$/g, '')           // 去首尾下划线
+        .slice(0, 60)                    // 限长
+      if (safe) return `${safe}_${date}.${ext}`
+    }
+    // 2. 回退：从 report markdown 第一行提取（去掉 # 和 null 字节）
+    const firstLine = (report || '').replace(/^#+\s*/, '').split('\n')[0].trim()
+    if (firstLine && firstLine.length > 3) {
+      const safe = firstLine
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .slice(0, 60)
+      if (safe) return `${safe}_${date}.${ext}`
+    }
+    // 3. 回退：从 VOC 截取
+    const vocShort = (voc || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 40)
+    if (vocShort) return `${vocShort}_${date}.${ext}`
+    // 4. 最终回退
+    return `rd-report_${date}.${ext}`
+  }
+
   function downloadReport() {
     const blob = new Blob([report], { type: 'text/markdown;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `rd-report-${new Date().toISOString().slice(0, 10)}.md`
+    a.download = getProjectFilename('md')
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -175,14 +206,14 @@ export default function ReportStep({
       const resp = await fetch('/api/export-docx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, filename: `rd-report-${new Date().toISOString().slice(0, 10)}.docx` }),
+        body: JSON.stringify({ report, filename: getProjectFilename('docx') }),
       })
       if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `rd-report-${new Date().toISOString().slice(0, 10)}.docx`
+      a.download = getProjectFilename('docx')
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
@@ -198,14 +229,14 @@ export default function ReportStep({
       const resp = await fetch('/api/export-pptx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, filename: `rd-report-${new Date().toISOString().slice(0, 10)}.pptx` }),
+        body: JSON.stringify({ report, filename: getProjectFilename('pptx') }),
       })
       if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `rd-report-${new Date().toISOString().slice(0, 10)}.pptx`
+      a.download = getProjectFilename('pptx')
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {

@@ -4,7 +4,7 @@ import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse, Clarif
 import ExploreStep from './ExploreStep'
 import ScoutStep from './ScoutStep'
 
-/** 材料科学领域 VOC 示例池（每次随机展示 12 个，中英文双语，应用导向无具体参数） */
+/** 材料科学领域 VOC 示例池（每次随机展示 6 个，中英文双语，应用导向无具体参数） */
 const VOC_POOL: { en: string; zh: string }[] = [
   {
     en: "Battery cell termination tape that maintains adhesion after long-term exposure to electrolyte at high temperatures. The tape should not swell, leave residue, or contaminate the electrolyte. It must provide reliable electrical insulation and work stably under thermal cycling. Additionally, it should be easy to apply and remove during manufacturing.",
@@ -138,9 +138,9 @@ function pickRandomVocs(pool: { en: string; zh: string }[], n: number, lang: 'en
   return arr.slice(0, Math.min(n, arr.length)).map(v => v[lang])
 }
 
-/** 截取 VOC 前 40 字作为卡片标题 */
+/** 截取 VOC 前 80 字作为卡片标题 */
 function vocTitle(voc: string): string {
-  const t = voc.length > 40 ? voc.slice(0, 40) + '...' : voc
+  const t = voc.length > 80 ? voc.slice(0, 80) + '...' : voc
   return t
 }
 
@@ -166,7 +166,11 @@ export default function InputStep({
   const [error, setError] = useState('')
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
   const [patentNum, setPatentNum] = useState<number>(20)
-  const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 12, lang))
+  const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 6, lang))
+  // 切换语言时重新从池中随机抽 6 个对应语言的 VOC
+  useEffect(() => {
+    setSampleVocs(pickRandomVocs(VOC_POOL, 6, lang))
+  }, [lang])
   // 澄清环节状态
   const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([])
   const [clarifyAnalysis, setClarifyAnalysis] = useState('')
@@ -446,7 +450,9 @@ export default function InputStep({
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Map-Reduce error')
+      const msg = e instanceof Error ? e.message : 'Map-Reduce error'
+      console.error('[runMapReduce]', msg, e)
+      setError(msg)
     }
     setMrLoading(false)
     setMrProgress(null)
@@ -576,12 +582,12 @@ interface MrResult {
         </div>
       )}
 
-      {/* VOC 示例池：随机 12 个材料科学场景 */}
+      {/* VOC 示例池：随机 6 个材料科学场景 */}
       {phase === 'input' && (
         <div className="form-block">
           <label className="form-label">
             <span className="label-tag">示例</span>
-            材料科学 VOC 示例（随机 12 个，点击试用）
+            材料科学 VOC 示例（随机 6 个，点击试用）
           </label>
           <div className="voc-samples">
             {sampleVocs.map((v, i) => (
@@ -598,7 +604,7 @@ interface MrResult {
           </div>
           <button
             className="link-btn"
-            onClick={() => setSampleVocs(pickRandomVocs(VOC_POOL, 12, lang))}
+            onClick={() => setSampleVocs(pickRandomVocs(VOC_POOL, 6, lang))}
             type="button"
           >
             ↻ 换一批示例
@@ -873,17 +879,28 @@ interface MrResult {
                 <p className="ds-cap-note">📊 {dsResult.cap_note}</p>
               )}
 
-              {/* Map-Reduce 按钮（无手动数量选择！） */}
+              {/* Map-Reduce 按钮 */}
               <div className="ds-mr-section">
                 {!mrLoading && !mrResult && (
-                  <button
-                    className="primary-btn"
-                    onClick={runMapReduce}
-                    disabled={!dsResult.patent_numbers?.length}
-                    type="button"
-                  >
-                    {T.deepSearchBtnMR[lang]}
-                  </button>
+                  <>
+                    {dsResult.patent_numbers?.length > 0 ? (
+                      <button
+                        className="primary-btn"
+                        onClick={runMapReduce}
+                        type="button"
+                      >
+                        {lang === 'zh'
+                          ? `提取 CTQ 对比表 (${dsResult.patent_numbers.length} 篇专利) →`
+                          : `Extract CTQ Table (${dsResult.patent_numbers.length} patents) →`}
+                      </button>
+                    ) : (
+                      <p className="ds-report-hint" style={{ color: 'var(--warning)', fontWeight: 500 }}>
+                        {lang === 'zh'
+                          ? '⚠️ 未找到可提取 CTQ 的专利，请返回 VOC Scout 调整搜索条件'
+                          : '⚠️ No patents available for CTQ extraction. Go back to VOC Scout and refine search.'}
+                      </p>
+                    )}
+                  </>
                 )}
 
                 {mrLoading && (
@@ -899,7 +916,11 @@ interface MrResult {
 
                 {mrResult && !mrLoading && (
                   <div className="mr-results">
-                    <h3 className="mr-done-title">✅ {T.deepSearchMRDone[lang]}</h3>
+                    <h3 className="mr-done-title">
+                      {mrResult.error
+                        ? (lang === 'zh' ? '⚠️ CTQ 提取遇到问题' : '⚠️ CTQ extraction issue')
+                        : `✅ ${T.deepSearchMRDone[lang]}`}
+                    </h3>
 
                     {mrResult.stats && (
                       <div className="mr-stats">

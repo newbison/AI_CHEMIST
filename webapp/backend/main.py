@@ -483,6 +483,24 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
     )
 
 
+def _make_content_disposition(filename: str) -> str:
+    """构建支持 Unicode 的 Content-Disposition header (RFC 5987)。
+
+    纯 ASCII 文件名直接引用；含中文等非 ASCII 字符时，追加 filename*=UTF-8''...
+    确保浏览器下载时文件名不乱码，也不因 latin-1 编码限制而崩溃。
+    """
+    # ASCII fallback：取扩展名，用日期兜底
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+    ascii_fallback = f"rd-report.{ext}"
+    try:
+        filename.encode("latin-1")
+        return f'attachment; filename="{filename}"'
+    except UnicodeEncodeError:
+        from urllib.parse import quote
+        encoded = quote(filename, safe="")
+        return f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
+
+
 @app.post("/api/export-docx")
 def export_docx(req: ExportDocxRequest):
     """把 Markdown 报告转成 Word (.docx) 文件下载。"""
@@ -494,7 +512,7 @@ def export_docx(req: ExportDocxRequest):
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _make_content_disposition(filename)},
     )
 
 
@@ -523,7 +541,7 @@ def export_pptx(req: ExportPptxRequest):
     return Response(
         content=pptx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _make_content_disposition(filename)},
     )
 
 
@@ -667,6 +685,7 @@ def voc_scout_output(req: ScoutOutputRequest) -> ScoutOutputResponse:
         temperature=0.3,
         max_tokens=4096,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
     data = _parse_json_safe_main(raw)

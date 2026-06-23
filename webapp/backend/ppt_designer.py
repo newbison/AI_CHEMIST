@@ -111,7 +111,8 @@ def design_pptx_js(markdown: str) -> str:
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.4,
-        max_tokens=16384,
+        max_tokens=32768,
+        extra_body={"thinking": {"type": "disabled"}},
     )
     text = resp.choices[0].message.content.strip()
 
@@ -128,8 +129,8 @@ def design_pptx_js(markdown: str) -> str:
         print("[ppt_designer] 生成的代码未包含 pptxgenjs 引用，可能无效")
         return ""
 
-    # 基本验证：必须有 writeFile 调用
-    if 'writeFile' not in code and 'writeFile' not in code:
+    # 基本验证：必须有 writeFile 调用（PptxGenJS API）
+    if 'writeFile' not in code:
         print("[ppt_designer] 生成的代码未包含 writeFile 调用，可能无效")
         return ""
 

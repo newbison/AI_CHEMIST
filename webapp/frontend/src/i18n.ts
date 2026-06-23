@@ -22,7 +22,7 @@ export const T = {
   entryCard2Title:     { en: 'I need fresh ideas',         zh: '我需要创新灵感' },
   entryCard2Desc:      { en: 'AI generates research questions from your product and industry', zh: 'AI 根据您的产品和行业生成研究问题' },
 
-  vocExamplesLabel:    { en: 'Materials Science VOC Examples (12 random, click to try)', zh: '材料科学 VOC 示例（随机 12 个，点击试用）' },
+  vocExamplesLabel:    { en: 'Materials Science VOC Examples (6 random, click to try)', zh: '材料科学 VOC 示例（随机 6 个，点击试用）' },
   vocExamplesTag:      { en: 'Examples',                     zh: '示例' },
   vocExamplesRefresh:  { en: '↻ Refresh examples',          zh: '↻ 换一批示例' },
 

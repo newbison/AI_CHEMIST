@@ -964,7 +964,7 @@ def _extract_patent_detail_from_html(html_text: str) -> str:
         if desc:
             d_text = desc.group(1).strip()
             if d_text and len(d_text) > 30:
-                text_parts.append(f"[Abstract] {d_text[:2000]}")
+                text_parts.append(f"[Abstract] {d_text}")
 
     # 2. 专利权人 + 发明人（来自 meta 标签）
     inventors: list[str] = []
@@ -980,11 +980,11 @@ def _extract_patent_detail_from_html(html_text: str) -> str:
         elif scheme == "assignee" and name:
             assignee = name
     if inventors:
-        text_parts.append(f"[Inventors] {', '.join(inventors[:10])}")
+        text_parts.append(f"[Inventors] {', '.join(inventors[:20])}")
     if assignee:
         text_parts.append(f"[Assignee] {assignee}")
 
-    # 3. 权利要求
+    # 3. 权利要求 — V4 Pro 1M 上下文，无需激进截断
     claims = re.search(
         r'<section[^>]*itemprop="claims"[^>]*>(.*?)</section>',
         html_text, re.DOTALL | re.IGNORECASE,
@@ -993,9 +993,9 @@ def _extract_patent_detail_from_html(html_text: str) -> str:
         claims_text = re.sub(r"<[^>]+>", " ", claims.group(1))
         claims_text = re.sub(r"\s+", " ", claims_text).strip()
         if claims_text:
-            text_parts.append(f"[Claims] {claims_text[:4000]}")
+            text_parts.append(f"[Claims] {claims_text[:8000]}")
 
-    # 4. 详细描述
+    # 4. 详细描述 — V4 Pro 1M 上下文，保留更多实验数据
     desc_sec = re.search(
         r'<section[^>]*itemprop="description"[^>]*>(.*?)</section>',
         html_text, re.DOTALL | re.IGNORECASE,
@@ -1014,7 +1014,7 @@ def _extract_patent_detail_from_html(html_text: str) -> str:
             if field:
                 desc_text = desc_text[field.start():]
         if desc_text:
-            text_parts.append(f"[Description] {desc_text[:6000]}")
+            text_parts.append(f"[Description] {desc_text[:16000]}")
 
     return "\n\n".join(text_parts) if text_parts else ""
 

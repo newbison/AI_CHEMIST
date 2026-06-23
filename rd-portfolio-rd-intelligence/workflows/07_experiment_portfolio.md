@@ -2,11 +2,35 @@
 
 ## Purpose
 
-Convert evidence-backed hypotheses into a prioritized experiment portfolio.
+Convert evidence-backed hypotheses into a **2-3 round DOE** (not just one round).
+The goal is to systematically narrow from many candidate X variables to the optimal
+formulation/process, with each round building on the previous.
+
+## Multi-Round DOE Structure (MANDATORY)
+
+```
+Round 1 — Factor Screening
+  Input: 5-10 candidate X variables from patent evidence
+  Method: Fractional factorial (2^(k-p), Resolution ≥ IV)
+  Output: 2-4 dominant levers that actually drive CTQs
+  Decision: Which Xs have statistically significant main effects?
+
+Round 2 — Response Surface Optimization
+  Input: 2-4 dominant Xs from Round 1
+  Method: Central Composite Design (CCD) or Box-Behnken
+  Output: Optimal factor levels + desirability score
+  Decision: Is the predicted optimum good enough to confirm?
+
+Round 3 — Confirmation Run
+  Input: Optimal formulation from Round 2
+  Method: 3-5 replicate runs at the predicted optimum
+  Output: Verified prediction accuracy + stability data
+  Decision: Proceed to scale-up or iterate?
+```
 
 ## Experiment Portfolio Logic
 
-Rank experiments by:
+Rank experiments within each round by:
 
 ```text
 learning value

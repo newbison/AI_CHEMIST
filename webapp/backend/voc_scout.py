@@ -157,6 +157,7 @@ def market_share_search(voc: str, industry_hint: str = "") -> dict:
         temperature=0.2,
         max_tokens=2048,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
     data = _parse_json_safe(raw)
@@ -251,12 +252,13 @@ def scout_round1(voc: str, market_share: dict | None = None) -> ScoutRound1Outpu
         temperature=0.4,
         max_tokens=4096,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
 
     data = _parse_json_safe(raw)
     if data is None:
-        raise RuntimeError(f"scout_round1: failed to parse LLM output: {raw[:300]}")
+        raise RuntimeError(f"scout_round1: failed to parse LLM output: {raw[:500]}")
 
     routes = [
         ScoutTechRoute(
@@ -359,12 +361,13 @@ def scout_round2(inp: ScoutRound2Input) -> ScoutRound2Output:
         temperature=0.3,
         max_tokens=8192,
         response_format={"type": "json_object"},
+        extra_body={"thinking": {"type": "disabled"}},
     )
     raw = resp.choices[0].message.content.strip()
 
     data = _parse_json_safe(raw)
     if data is None:
-        raise RuntimeError(f"scout_round2: failed to parse LLM output: {raw[:300]}")
+        raise RuntimeError(f"scout_round2: failed to parse LLM output: {raw[:500]}")
 
     routes = []
     for rd in data.get("routes", []):

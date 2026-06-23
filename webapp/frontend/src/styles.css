@@ -685,9 +685,15 @@
 /* ===== VOC sample cards ===== */
 .voc-samples {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .voc-samples {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .voc-sample-card {
@@ -695,15 +701,15 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 14px;
-  font-size: 12px;
-  line-height: 1.5;
+  padding: 18px 20px;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--text-dim);
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

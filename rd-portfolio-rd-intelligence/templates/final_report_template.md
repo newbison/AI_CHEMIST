@@ -62,38 +62,82 @@
 - Supplier feasibility:
 - Design risk mapping:
 
-## 11. Experiment Portfolio
-| Rank | Experiment | Learning Goal | Priority Rationale | Required Gate |
-|---:|---|---|---|---|
+## 11. Experiment Portfolio — 1st Round: Factor Screening
+> **Goal**: From all critical X variables extracted from patents, identify the 2-4 dominant levers that actually drive CTQs. Use fractional factorial design (e.g. 2^(k-p), Resolution≥IV). Narrow 5-10 candidate Xs → 2-4 dominant levers.
 
-## 12. DOE Details
-[Insert experiment-by-experiment DOE plans]
+| Rank | Experiment | Learning Goal | Key Xs Tested | Priority Rationale | Required Gate |
+|---:|---|---|---|---|---|
 
-## 13. Lab Execution Plan
+### Screening DOE Design
+- **Design type**: [e.g. 2^(5-1) fractional factorial, Resolution IV]
+- **Factors & Levels**:
+  | Factor (X) | Low (-1) | Center (0) | High (+1) | Rationale (patent source) |
+  |---|---|---|---|---|
+- **Responses (Y)**:
+  | Response | Unit | Test Method | Target |
+  |---|---|---|---|
+- **Controls**: [baseline formulation / commercial benchmark]
+- **Replicates**: [N per condition]
+- **Decision Rule**: [Which factors proceed to Round 2? E.g. p<0.10 main effect]
+
+---
+
+## 12. DOE Details — 2nd Round: Response Surface Optimization
+> **Goal**: For the 2-4 dominant Xs from Round 1, find the optimal parameter combination using Central Composite Design (CCD) or Box-Behnken. Try DIFFERENT X combinations than Round 1.
+
+| Rank | Experiment | Learning Goal | Factors (from R1) | Priority Rationale | Required Gate |
+|---:|---|---|---|---|---|
+
+### Optimization DOE Design
+- **Design type**: [e.g. Central Composite Design (CCD) with α=1.414 / Box-Behnken]
+- **Factors & Levels**:
+  | Factor (X) | Low (-α) | Low (-1) | Center (0) | High (+1) | High (+α) | Rationale |
+  |---|---|---|---|---|---|---|
+- **Responses (Y)**:
+  | Response | Unit | Test Method | Target / Desirability |
+  |---|---|---|---|
+- **Controls**: [optimized baseline from R1]
+- **Replicates**: [N center points, N axial points]
+- **Decision Rule**: [Desirability score threshold / confirmation run criteria]
+
+---
+
+## 13. DOE Details — 3rd Round: Confirmation Run
+> **Goal**: Run 3-5 replicates at the predicted optimal point to verify model predictions, assess long-term stability, and confirm reproducibility before scaling.
+
+- **Optimal formulation from Round 2**:
+- **Number of confirmation replicates**: [3-5]
+- **Pass criteria**: [e.g. all CTQs within 95% prediction interval, CV<5% across replicates]
+- **Long-term stability test**: [accelerated aging conditions, if applicable]
+- **Scale-up feasibility note**:
+
+---
+
+## 14. Lab Execution Plan
 - Sample matrix:
 - Sample IDs:
 - Test requests:
 - Data capture template:
 - Deviation log:
 
-## 14. Post-Experiment Learning Plan
+## 15. Post-Experiment Learning Plan
 - Hypothesis record:
 - Result upload expectations:
 - Analysis method:
 - Learning record format:
 - Approval workflow:
 
-## 15. Knowledge-Base Update Proposal
+## 16. Knowledge-Base Update Proposal
 | Proposed Learning | Evidence | Confidence | Applicability | Reviewer |
 |---|---|---|---|---|
 
-## 16. Portfolio Replication Guidance
+## 17. Portfolio Replication Guidance
 - What can be reused directly:
 - What must be customized:
 - What must be validated:
 - Portfolio owners:
 
-## 17. Open Questions
+## 18. Open Questions
 - Business:
 - Technical:
 - IP/legal:
@@ -102,6 +146,6 @@
 - Supplier:
 - Test method:
 
-## 18. Review Gates
+## 19. Review Gates
 | Gate | Owner | Status | Notes |
 |---|---|---|---|
