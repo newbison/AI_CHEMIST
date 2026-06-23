@@ -22,7 +22,7 @@ pinned: false
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
-  <img src="https://img.shields.io/badge/DeepSeek-V3-4F46E5?style=for-the-badge&logo=openai&logoColor=white" alt="DeepSeek">
+  <img src="https://img.shields.io/badge/DeepSeek-V4_Pro-4F46E5?style=for-the-badge&logo=openai&logoColor=white" alt="DeepSeek">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/PptxGenJS-Powered-FF6B6B?style=for-the-badge&logo=javascript&logoColor=white" alt="PptxGenJS">
 </p>
@@ -56,15 +56,16 @@ Traditional: search (2 days) → read & screen (3 days) → extract & analyze (2
 **FORGE AI: 5 minutes. Knowledge compounds across projects.**
 
 ```
-  ┌──────────┐     ┌─────────────────┐     ┌──────────────────┐     ┌─────────────┐
-  │          │     │                 │     │                  │     │             │
-  │   VOC    │ ──▶ │  AI translates  │ ──▶ │  AI researches   │ ──▶ │  Complete   │
-  │  Input   │     │  to CTQs +      │     │  competitors +   │     │  R&D Report │
-  │          │     │  test methods   │     │  white space     │     │             │
-  └──────────┘     └─────────────────┘     └──────────────────┘     └─────────────┘
-                                                   │
-                         ┌─────────────────────────┘
-                         ▼
+  ┌──────────┐     ┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+  │          │     │                 │     │                  │     │                  │
+  │   VOC    │ ──▶ │  VOC Scout      │ ──▶ │  Deep Search     │ ──▶ │  Complete        │
+  │  Input   │     │  landscape      │     │  Map-Reduce      │     │  R&D Report      │
+  │          │     │  exploration    │     │  patent analysis │     │                  │
+  └──────────┘     └─────────────────┘     └──────────────────┘     └──────────────────┘
+                         │                          │
+                         │  2-3 rounds interactive  │  3-pass iterative search
+                         │  tech route selection    │  pre-screen → map → reduce
+                         ▼                          ▼
               ┌──────────────────┐     ┌──────────────────┐
               │  AI designs      │     │  You run         │
               │  1st & 2nd DOE   │ ──▶ │  experiments     │
@@ -124,6 +125,53 @@ This is what FORGE AI actually does when you submit a research question:
 
 6-level auto-fallback. Every patent number is real and traceable to its original source.
 
+### 🔭 VOC Scout — Interactive Technology Landscape Exploration
+
+Before searching patents, you need to know **who the players are** and **what technical routes exist**. VOC Scout is a 2-3 round interactive module that builds a structured map of the competitive landscape:
+
+```
+Round 1: Panoramic view — AI identifies 4-6 technical routes with leading companies
+         → User multi-selects which routes to explore
+Round 2: Deep dive — per-route company analysis with patent status & key CTQ values
+         → User confirms/excludes, optionally refines further
+Output:  🏢 Target companies (P0/P1 prioritized) + 🔑 Search keywords
+         + 📂 IPC classifications + ⚠️ FTO risk notes
+```
+
+**Key capabilities:**
+- **Market share-aware leader identification**: Searches market share data (Chinese + English) **before** patent search — patent count ≠ market position
+- **Multi-source evidence**: Cross-references patents `[P]`, product TDS `[T]`, academic papers `[A]`, clinical data `[C]`, and industry reports `[D]`
+- **Contradiction detection**: Flags performance tradeoffs, application mismatches, compliance tensions
+- **Patent status awareness**: Distinguishes expired patents (free to use ✅) from active ones (FTO risk ⚠️)
+- **Confidence scoring**: ★★★ high / ★★☆ medium / ★☆☆ low — transparent about what the system knows vs. infers
+
+### 🧬 Deep Search — Map-Reduce Patent Analysis Pipeline
+
+Once VOC Scout identifies the targets, Deep Search executes a **three-pass iterative search** with **Map-Reduce** architecture for scalable full-text patent analysis:
+
+```
+Pre-Screen: LLM screens 100+ patent abstracts → selects top 30-50 worth reading
+     ↓
+Map Phase: 30-50 parallel LLM calls — each reads ONE patent (~10K chars),
+           extracts structured CTQ records (~200 chars each)
+           → 10 concurrent workers, real-time SSE progress per patent
+     ↓
+Reduce Phase: 1 LLM call synthesizes all CTQ records →
+              cross-patent comparison table, FTO assessment, recommendations
+```
+
+**Why Map-Reduce matters:**
+- 80 patents × 10,000 chars = 800,000 chars → **impossible for a single LLM call**
+- Map-Reduce: each call reads 1 patent → outputs 200 chars → Reduce reads 16,000 chars → **fits easily**
+- Real-time progress: "Processing patent 12/45..." — no more staring at a spinner
+
+**Three-pass iterative search:**
+1. **Company-targeted** search (per P0/P1 company, 2 angles each) + product TDS/MSDS
+2. **Keyword + IPC sweep** (unconstrained, catches small players with active patents)
+3. **New term extraction → re-search** (discovers missed companies, IPC codes, technical concepts)
+
+**Convergence criteria**: new companies < 30% of previous round, zero new IPC codes, no new technical routes → naturally converges in 2-3 rounds.
+
 ### 🧬 Deep Patent Analysis — Full Text, Not Just Abstracts
 
 Each patent: Abstract + Claims + Description — **10,000+ characters extracted per patent**.
@@ -148,12 +196,14 @@ Based on patent evidence, white space analysis, and critical X ranking:
 - **2nd DOE · Optimization**: Central composite design — finds the sweet spot
 - **You run experiments. AI analyzes your DOE data.** The model updates. Feed results back.
 
-### 📊 Complete R&D Report — 9-Step Workflow Output
+### 📊 Complete R&D Report — End-to-End Workflow
 
 ```
-01 Project Intake → 02 VOC→CTQ → 03 Evidence Mining → 04 Patent Extraction
-→ 05 X-Y Synthesis → 06 Risk Screening → 07 DOE Design
-→ 08 Post-Experiment Learning → 09 Portfolio Replication
+VOC Scout                    Deep Search                   Report Generation
+01 Landscape → 02 Route     03 Pre-Screen → 04 Map       09 X-Y Synthesis
+Selection  → 03 Company     05 Reduce   → 06 Iterate     10 Risk Screening
+Prioritization               07 Converge → 08 FTO        11 DOE Design
+                                                         12 Post-Experiment
 ```
 
 Each report includes:
@@ -282,6 +332,33 @@ Open your browser, enter a research question, and watch FORGE AI work.
 
 ---
 
+## 🔌 API Endpoints
+
+### VOC Scout — Interactive Exploration
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/voc-scout/round1` | Panoramic view: identify 4-6 tech routes with leading companies & market share |
+| `POST` | `/api/voc-scout/round2` | Deep dive: per-route company details, patent status, CTQ values |
+| `POST` | `/api/voc-scout/output` | Generate structured output: 🏢 companies + 🔑 keywords + 📂 IPC + ⚠️ FTO |
+
+### Deep Search — Map-Reduce Patent Analysis
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/deep-search/start` | Begin 3-pass iterative search (company-targeted + keyword sweep + new-term re-search) |
+| `POST` | `/api/deep-search/prescreen` | LLM screens patent abstracts → selects top 30-50 worth full-text reading |
+| `POST` | `/api/deep-search/map-reduce` | **SSE streaming**: parallel Map (10 workers, real-time per-patent progress) → Reduce (cross-patent synthesis) |
+
+### Report Generation & Export
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/search` | Execute patent search across 6 sources |
+| `POST` | `/api/generate` | Generate full R&D report (SSE streaming) |
+| `POST` | `/api/export-docx` | Export report as Word document |
+| `POST` | `/api/export-pptx` | Export report as AI-designed PowerPoint |
+
 ## 🐳 Docker Deployment
 
 ```bash
@@ -298,8 +375,10 @@ One-click deploy to [Zeabur](ZEABUR.md) or [Hugging Face Spaces](HF_SPACES.md).
 | Layer | Technology |
 |-------|-----------|
 | **AI Model** | DeepSeek V3 — 128K context, SSE streaming, OpenAI-compatible |
-| **Backend** | FastAPI + Uvicorn — async multi-source patent search |
-| **Frontend** | React 18 + TypeScript + Vite — 3-step SPA |
+| **Backend** | FastAPI + Uvicorn — async multi-source patent search, SSE progress streaming |
+| **Frontend** | React 18 + TypeScript + Vite — 4-step SPA (Input → Scout → Explore → Report) |
+| **VOC Scout** | LLM-driven interactive exploration — market share search, tech route mapping, confidence scoring |
+| **Deep Search** | Map-Reduce pipeline — pre-screen → 10-way parallel Map → Reduce, SSE real-time progress |
 | **Patent Search** | httpx multi-source + HTML/XML parsing + 6-level fallback |
 | **Word Export** | python-docx |
 | **PPT Export** | PptxGenJS (Node.js subprocess) + python-pptx (fallback) |
@@ -313,15 +392,21 @@ One-click deploy to [Zeabur](ZEABUR.md) or [Hugging Face Spaces](HF_SPACES.md).
 ```
 FORGE_AI/
 ├── webapp/
-│   ├── backend/              # FastAPI backend
-│   │   ├── main.py               # API routes (health/search/generate/export)
-│   │   ├── patent_search.py      # 6-level fallback global patent search
-│   │   ├── prompt_builder.py     # System/User prompt construction
-│   │   ├── llm_client.py         # DeepSeek SSE streaming client
-│   │   ├── pptx_export.py        # PPTX generation (PptxGenJS + python-pptx)
-│   │   └── docx_export.py        # Word export
-│   └── frontend/              # React + TypeScript frontend
-│       └── src/components/       # InputStep → PatentsStep → ReportStep
+│   ├── backend/                  # FastAPI backend
+│   │   ├── main.py                   # API routes (health/voc-scout/deep-search/search/generate/export)
+│   │   ├── voc_scout.py              # VOC Scout: interactive tech landscape exploration (Round 1/2 + output)
+│   │   ├── deep_search.py            # Deep Search: Map-Reduce patent pipeline (pre-screen→map→reduce)
+│   │   ├── patent_search.py          # 6-level fallback global patent search
+│   │   ├── prompt_builder.py         # System/User prompt construction
+│   │   ├── llm_client.py             # DeepSeek SSE streaming client
+│   │   ├── pptx_export.py            # PPTX generation (PptxGenJS + python-pptx)
+│   │   └── docx_export.py            # Word export
+│   └── frontend/                  # React + TypeScript frontend
+│       └── src/components/           # InputStep → ScoutStep → ExploreStep → ReportStep
+├── tests/                          # Test suite (deep_search, voc_scout)
+├── docs/
+│   └── specs/
+│       └── voc-scout-spec.md       # VOC Scout + Deep Search full specification
 ├── rd-portfolio-rd-intelligence/  # Orchestrator Skill (9-step workflow)
 ├── patent-xy-extraction-skill/    # Extractor Skill (10-pass X-Y extraction)
 ├── ppt-design-skill/              # PPT Design Skill (PptxGenJS)

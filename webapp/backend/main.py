@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,21 @@ from voc_analyzer import (  # noqa: E402
     clarify_voc,
     enrich_voc,
     generate_voc_ideas,
+)
+from voc_scout import (  # noqa: E402
+    scout_round1,
+    scout_round2,
+    market_share_search,
+    ScoutRound2Input,
+)
+from deep_search import (  # noqa: E402
+    DeepSearchInput,
+    DeepSearchOutput,
+    extract_new_terms,
+    judge_convergence,
+    run_map_reduce_pipeline,
+    run_deep_search_pipeline,
+    prescreen_patents,
 )
 
 app = FastAPI(title="R&D Intelligence Report Generator", version="1.0.0")
@@ -101,6 +117,7 @@ class GenerateRequest(BaseModel):
     fetch_details: bool = True  # 是否抓取每篇专利详情
     doc_analysis: str | None = None  # 用户上传文档的分析结果
     language: str = "en"  # "en" or "zh"
+    deep_search_data: dict | None = None  # Deep Search 全景（市场份额、CTQ 表、技术路线、FTO、局限等）
 
 
 class ExportDocxRequest(BaseModel):
@@ -430,7 +447,11 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
         else:
             print(f"[generate] fetch_details=False, 跳过详情抓取")
 
-        user_prompt = build_user_prompt(req.voc, working_patents, doc_analysis=req.doc_analysis)
+        user_prompt = build_user_prompt(
+            req.voc, working_patents,
+            doc_analysis=req.doc_analysis,
+            deep_search_data=req.deep_search_data,
+        )
 
         # 诊断：确认详情文本确实进了 prompt
         detail_count = user_prompt.count('[Abstract]')
@@ -444,7 +465,7 @@ def generate_report(req: GenerateRequest) -> StreamingResponse:
         prompt_size = len(system_prompt) + len(user_prompt)
         yield f"data: {json.dumps({'type': 'progress', 'stage': 'llm_calling', 'prompt_size': prompt_size})}\n\n"
 
-        # 流式推送报告内容
+        # 流式推送报告内容（stream_report 内置自动续写，输出截断时自动续写最多 5 次）
         try:
             for chunk in stream_report(system_prompt, user_prompt):
                 yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
@@ -504,6 +525,312 @@ def export_pptx(req: ExportPptxRequest):
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# VOC Scout + Deep Search 端点
+# ---------------------------------------------------------------------------
+
+class ScoutRound2Request(BaseModel):
+    voc: str
+    selected_route_ids: list[str]
+    focus: str = ""
+
+
+class ScoutOutputRequest(BaseModel):
+    """从用户最终选择组装三件套。"""
+    voc: str
+    selected_route_ids: list[str]
+    selected_company_names: list[str] = []
+    round_history: list[dict] = []
+
+
+class ScoutOutputResponse(BaseModel):
+    companies: dict
+    keywords: dict
+    ipc: dict
+    fto: dict
+    round_history: list[dict]
+    confidence: str
+
+
+class DeepSearchRequest(BaseModel):
+    voc: str
+    domain_class: str = ""
+    p0_companies: list[str] = []
+    p1_companies: list[str] = []
+    core_keywords: list[str] = []
+    supp_keywords: list[str] = []
+    exclude_keywords: list[str] = []
+    core_ipc: list[str] = []
+    supp_ipc: list[str] = []
+    fto_notes: list[str] = []
+    round_history: list[dict] = []
+
+
+class DeepSearchResponse(BaseModel):
+    voc: str
+    domain_class: str
+    confidence: str
+    search_path: str
+    converged: bool
+    total_rounds: int
+    total_companies_found: int
+    routes: list[dict]
+    ctq_table: list[dict]
+    fto: dict
+    recommendation: dict
+    convergence: dict
+    user_corrections: list[dict] = []
+
+
+class MapReduceRequest(BaseModel):
+    patent_numbers: list[str]
+    max_patents: int = 50
+
+
+@app.post("/api/voc-scout/round1")
+def voc_scout_round1(req: AnalyzeVocRequest) -> dict:
+    """VOC Scout Round 1：从原始 VOC 探索技术方向。
+
+    先跑双语市场份额搜索（Step 0），再用真实市场地位排序技术路线。
+    返回 4-6 条技术路线 + 领域分类 + 置信度 + 市场份额数据。
+    """
+    # Step 0: 市场份额搜索（专利搜索之前，专利数 ≠ 市场地位）
+    market_share = market_share_search(req.voc)
+    result = scout_round1(req.voc, market_share=market_share)
+    return {
+        "domain_class": result.domain_class,
+        "confidence": result.confidence,
+        "analysis": result.analysis,
+        "routes": [r.model_dump() for r in result.routes],
+        "contradictions": result.contradictions,
+        "market_share": market_share,
+    }
+
+
+@app.post("/api/voc-scout/round2")
+def voc_scout_round2(req: ScoutRound2Request) -> dict:
+    """VOC Scout Round 2：钻入选定路线。
+
+    返回每条路线的公司详情（专利状态 + CTQ 值）。
+    """
+    result = scout_round2(ScoutRound2Input(
+        voc=req.voc,
+        selected_route_ids=req.selected_route_ids,
+        focus=req.focus,
+    ))
+    return {
+        "routes": [
+            {
+                "route_id": r.route_id,
+                "route_name": r.route_name,
+                "companies": [c.model_dump() for c in r.companies],
+            }
+            for r in result.routes
+        ],
+        "contradictions": result.contradictions,
+        "confidence": result.confidence,
+    }
+
+
+@app.post("/api/voc-scout/output")
+def voc_scout_output(req: ScoutOutputRequest) -> ScoutOutputResponse:
+    """从用户最终选择组装三件套工具包。
+
+    输出可直接喂给 Deep Search。
+    """
+    from openai import OpenAI as _OAI
+    client = _OAI(
+        api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+        base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+        timeout=120.0,
+    )
+    prompt = (
+        f"VOC: {req.voc}\n"
+        f"Selected routes: {req.selected_route_ids}\n"
+        f"Selected companies: {req.selected_company_names}\n"
+        f"Round history: {json.dumps(req.round_history, ensure_ascii=False)}\n\n"
+        "Based on the above, produce the final three-piece toolkit.\n"
+        "Return ONLY valid JSON with keys: companies, keywords, ipc, fto, confidence.\n"
+        "companies: {priority: [{level, name, product, tech, patent_status, patent, note}], domestic_reference: [...]}\n"
+        "keywords: {core: [...], supplement: [...], exclude: [...]}\n"
+        "ipc: {core: [...], supplement: [...]}\n"
+        "fto: {notes: [...], sweep_query: \"...\"}"
+    )
+    resp = client.chat.completions.create(
+        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
+        messages=[
+            {"role": "system", "content": "You are a patent search strategist. Output only valid JSON."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+        max_tokens=4096,
+        response_format={"type": "json_object"},
+    )
+    raw = resp.choices[0].message.content.strip()
+    data = _parse_json_safe_main(raw)
+
+    # LLM 可能返回 float (0.85) 或 string ("★★☆")，统一转成 string
+    confidence_raw = data.get("confidence", "★★☆")
+    if isinstance(confidence_raw, (int, float)):
+        if confidence_raw >= 0.8:
+            confidence = "★★★"
+        elif confidence_raw >= 0.5:
+            confidence = "★★☆"
+        else:
+            confidence = "★☆☆"
+    else:
+        confidence = str(confidence_raw) if confidence_raw else "★★☆"
+
+    return ScoutOutputResponse(
+        companies=data.get("companies", {}),
+        keywords=data.get("keywords", {}),
+        ipc=data.get("ipc", {}),
+        fto=data.get("fto", {}),
+        round_history=req.round_history + [{"phase": "output"}],
+        confidence=confidence,
+    )
+
+
+@app.post("/api/deep-search/start")
+def deep_search_start(req: DeepSearchRequest) -> dict:
+    """Deep Search：运行三轮迭代专利/产品检索。
+
+    使用 patent_search.py 引擎（永不通过 LLM 合成专利数据）。
+    Round 1: 公司定向搜索 + 关键词/IPC 宽搜
+    Round 2: 新词提取 → 用新关键词/公司/IPC 重搜
+    Round 3: 收敛验证
+
+    返回完整专利全景（公司映射 + 收敛状态 + FTO + 建议）。
+    Map-Reduce CTQ 提取请通过 /api/deep-search/map-reduce 单独调用。
+    """
+    inp = DeepSearchInput(**req.model_dump())
+    result = run_deep_search_pipeline(inp)
+
+    return {
+        "voc": inp.voc,
+        "domain_class": inp.domain_class,
+        "confidence": "★★☆",
+        "search_path": result["search_path"],
+        "converged": result["converged"],
+        "total_rounds": result["total_rounds"],
+        "total_companies_found": result["total_companies_found"],
+        "total_found": result["total_found"],
+        "capped_to": result["capped_to"],
+        "cap_note": result["cap_note"],
+        "patents": result["all_patents"],
+        "patent_count": result["capped_to"],
+        "patent_numbers": result["capped_patent_numbers"],
+        "convergence": result["convergence"],
+        "fto": result["fto"],
+        "recommendation": result["recommendation"],
+    }
+
+
+@app.post("/api/deep-search/map-reduce")
+def deep_search_map_reduce(req: MapReduceRequest):
+    """对一批专利号运行 Map-Reduce（SSE 流式，逐篇推送进度）。
+
+    通过 patent_search.py 抓全文，逐篇提取 CTQ 记录，
+    聚合成对比表。每完成一篇专利即推送进度事件。
+    """
+    import queue
+    import threading
+
+    q: queue.Queue = queue.Queue()
+
+    def _on_progress(completed: int, total: int, patent_number: str, ok: bool):
+        q.put({
+            "type": "progress",
+            "stage": "ctq",
+            "completed": completed,
+            "total": total,
+            "patent_number": patent_number,
+            "ok": ok,
+        })
+
+    def event_stream():
+        result_holder: list = []
+        error_holder: list = []
+
+        def worker():
+            try:
+                from deep_search import run_map_reduce_pipeline
+                result_holder.append(
+                    run_map_reduce_pipeline(
+                        patent_numbers=req.patent_numbers,
+                        max_patents=req.max_patents,
+                        on_progress=_on_progress,
+                    )
+                )
+                q.put({"type": "reduce_start"})
+                q.put({"type": "done", "result": result_holder[0]})
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                error_holder.append(str(e))
+                q.put({"type": "error", "message": str(e)})
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+
+        total_est = len(req.patent_numbers)
+        yield f"data: {json.dumps({'type': 'meta', 'total': total_est})}\n\n"
+
+        while True:
+            try:
+                msg = q.get(timeout=0.5)
+                if msg["type"] == "done":
+                    yield f"data: {json.dumps(msg)}\n\n"
+                    break
+                elif msg["type"] == "error":
+                    yield f"data: {json.dumps(msg)}\n\n"
+                    break
+                else:
+                    yield f"data: {json.dumps(msg)}\n\n"
+            except queue.Empty:
+                # 心跳，保持连接
+                yield ": heartbeat\n\n"
+
+        t.join(timeout=5)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/deep-search/prescreen")
+def deep_search_prescreen(req: MapReduceRequest) -> dict:
+    """预筛：排序并选出值得读全文的前 30-50 篇专利。
+
+    必须在 Map-Reduce 之前调用。不调用则成本翻倍。
+    """
+    selected = prescreen_patents(req.patent_numbers, max_select=req.max_patents)
+    return {"selected_patent_numbers": selected, "total_input": len(req.patent_numbers)}
+
+
+def _parse_json_safe_main(raw: str) -> dict:
+    """解析 JSON，兼容 markdown 代码围栏。"""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
+    m2 = re.search(r"\{.*\}", raw, re.DOTALL)
+    if m2:
+        try:
+            return json.loads(m2.group())
+        except json.JSONDecodeError:
+            pass
+    return {}
 
 
 # ---------------------------------------------------------------------------

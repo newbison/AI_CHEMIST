@@ -105,7 +105,7 @@ def design_pptx_js(markdown: str) -> str:
 
     client = get_client()
     resp = client.chat.completions.create(
-        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},

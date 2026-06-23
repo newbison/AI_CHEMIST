@@ -16,6 +16,7 @@ export default function App() {
   const [selectedPatents, setSelectedPatents] = useState<import('./types').Patent[]>([])
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
   const [docAnalysis, setDocAnalysis] = useState<string | null>(null)
+  const [deepSearchData, setDeepSearchData] = useState<Record<string, unknown> | null>(null)
 
   return (
     <div className="app">
@@ -47,6 +48,14 @@ export default function App() {
               setPatents(all)
               setSelectedPatents(selected)
               setStrategies(strats)
+              setDeepSearchData(null)
+              setStep('patents')
+            }}
+            onDeepSearchReport={(all, selected, strats, dsData) => {
+              setPatents(all)
+              setSelectedPatents(selected)
+              setStrategies(strats)
+              setDeepSearchData(dsData)
               setStep('patents')
             }}
           />
@@ -76,6 +85,7 @@ export default function App() {
             voc={voc}
             patents={selectedPatents}
             docAnalysis={docAnalysis}
+            deepSearchData={deepSearchData}
             onBack={() => setStep('document')}
             onHome={() => {
               setStep('input')
@@ -84,6 +94,7 @@ export default function App() {
               setSelectedPatents([])
               setStrategies([])
               setDocAnalysis(null)
+              setDeepSearchData(null)
             }}
           />
         )}

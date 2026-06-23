@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import os
-import re
 from typing import Any
 
 import pdfplumber
 from docx import Document
 
+from common.json_utils import parse_json_with_fallback  # noqa: E402
 from llm_client import get_client  # noqa: E402
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -21,14 +25,20 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     - 优先逐页提取文本，保留段落结构
     - 过滤空页
     - 限制单文件总字符数（50万）防止内存溢出
+    - 限制最多提取 200 页，防止超大 PDF 处理时间过长
     """
     text_parts: list[str] = []
     total_chars = 0
     MAX_CHARS = 500_000
+    MAX_PAGES = 200  # 最多处理 200 页
 
     try:
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            for page in pdf.pages:
+            pages_to_process = pdf.pages[:MAX_PAGES]
+            if len(pdf.pages) > MAX_PAGES:
+                logger.warning(f"PDF 共 {len(pdf.pages)} 页，只处理前 {MAX_PAGES} 页")
+
+            for page in pages_to_process:
                 page_text = page.extract_text() or ""
                 if page_text.strip():
                     # 防止超过总限制
@@ -45,6 +55,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     if not text_parts:
         raise ValueError("PDF 中未提取到文本（可能是扫描图片或加密文件）")
 
+    logger.info(f"PDF 文本提取完成，共 {len(text_parts)} 页，{total_chars} 字符")
     return "\n\n".join(text_parts)
 
 
@@ -78,7 +89,7 @@ def analyze_document(text: str, doc_name: str) -> str:
         - JSON 解析失败 → 返回纯文本
     """
     client = get_client()
-    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
 
     # 截断：超过10万字符只取前10万（LLM上下文窗口限制）
     if len(text) > 100_000:
@@ -127,46 +138,19 @@ def analyze_document(text: str, doc_name: str) -> str:
         )
         raw = response.choices[0].message.content or ""
 
-        # 三重 JSON 解析兜底
-        result = _parse_json(raw)
-        if result:
+        # 使用公共 JSON 解析函数
+        result = parse_json_with_fallback(raw, expected_keys=["技术要点", "应用场景", "主要结论", "关键数据", "创新点"])
+        if result and isinstance(result, dict):
             return _format_analysis(result)
         else:
             # 降级：无法解析 JSON，直接返回原始文本
+            logger.warning(f"[doc_analyzer] JSON 解析失败，原始返回: {raw[:200]}")
             return f"## 技术分析（原始输出）\n\n{raw[:3000]}"
 
     except Exception as e:
-        print(f"[doc_analyzer] LLM 分析失败: {e}")
+        logger.error(f"[doc_analyzer] LLM 分析失败: {e}")
         # 降级：返回简要摘要
         return _fallback_analysis(text)
-
-
-def _parse_json(raw: str) -> dict[str, str] | None:
-    """三重 JSON 解析兜底。"""
-    # 方法1：直接解析
-    try:
-        return json.loads(raw)
-    except Exception:
-        pass
-
-    # 方法2：提取代码块
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw, re.MULTILINE)
-    if match:
-        try:
-            return json.loads(match.group(1).strip())
-        except Exception:
-            pass
-
-    # 方法3：找首尾花括号
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start != -1 and end != -1 and start < end:
-        try:
-            return json.loads(raw[start : end + 1])
-        except Exception:
-            pass
-
-    return None
 
 
 def _format_analysis(result: dict[str, str]) -> str:

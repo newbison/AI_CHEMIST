@@ -8,11 +8,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import TypedDict
 
 from openai import OpenAI
+
+from common.json_utils import parse_json_with_fallback, parse_json_array_with_fallback  # noqa: E402
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 class SearchStrategy(TypedDict):
@@ -67,22 +73,20 @@ VOC:
 ]"""
 
     resp = client.chat.completions.create(
-        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+        model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
         max_tokens=1024,
     )
     text = resp.choices[0].message.content.strip()
 
-    # 提取 JSON 数组
-    m = re.search(r'\[.*\]', text, re.DOTALL)
-    if not m:
-        print(f"[voc_analyzer] 未找到 JSON 数组, 原始返回: {text[:200]}")
+    # 使用公共 JSON 解析函数
+    items = parse_json_array_with_fallback(text)
+    if not items:
+        logger.warning(f"[voc_analyzer] JSON 解析失败, 原始返回: {text[:200]}")
         return []
-    try:
-        items = json.loads(m.group())
-    except json.JSONDecodeError as e:
-        print(f"[voc_analyzer] JSON 解析失败: {e}")
+    if not isinstance(items, list):
+        logger.warning(f"[voc_analyzer] 解析结果不是数组: {type(items)}")
         return []
 
     strategies: list[SearchStrategy] = []
@@ -154,37 +158,20 @@ VOC:
 
     try:
         resp = client.chat.completions.create(
-            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=2048,
         )
         text = resp.choices[0].message.content.strip()
     except Exception as e:
-        print(f"[clarify_voc] LLM 调用失败: {e}")
+        logger.error(f"[clarify_voc] LLM 调用失败: {e}")
         return ClarifyResult(questions=[], analysis="")
 
-    # JSON 解析（三重兜底）
-    data: dict | None = None
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
-        if m:
-            try:
-                data = json.loads(m.group(1))
-            except json.JSONDecodeError:
-                pass
-        if data is None:
-            m2 = re.search(r'\{.*\}', text, re.DOTALL)
-            if m2:
-                try:
-                    data = json.loads(m2.group())
-                except json.JSONDecodeError:
-                    pass
-
+    # 使用公共 JSON 解析函数
+    data = parse_json_with_fallback(text, expected_keys=["questions", "analysis"])
     if not data or not isinstance(data, dict):
-        print(f"[clarify_voc] JSON 解析失败, 原始返回: {text[:200]}")
+        logger.warning(f"[clarify_voc] JSON 解析失败, 原始返回: {text[:200]}")
         return ClarifyResult(questions=[], analysis="")
 
     questions: list[ClarifyQuestion] = []
@@ -251,41 +238,24 @@ def enrich_voc(
 
     try:
         resp = client.chat.completions.create(
-            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
             max_tokens=2048,
         )
         text = resp.choices[0].message.content.strip()
     except Exception as e:
-        print(f"[enrich_voc] LLM 调用失败: {e}")
+        logger.error(f"[enrich_voc] LLM 调用失败: {e}")
         # 降级：简单拼接
         return EnrichResult(
             enriched_voc=original_voc + "\n\n【澄清补充】\n" + qa_text,
             changes=["LLM 调用失败，已简单拼接答案"],
         )
 
-    # JSON 解析（三重兜底）
-    data: dict | None = None
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
-        if m:
-            try:
-                data = json.loads(m.group(1))
-            except json.JSONDecodeError:
-                pass
-        if data is None:
-            m2 = re.search(r'\{.*\}', text, re.DOTALL)
-            if m2:
-                try:
-                    data = json.loads(m2.group())
-                except json.JSONDecodeError:
-                    pass
-
+    # 使用公共 JSON 解析函数
+    data = parse_json_with_fallback(text, expected_keys=["enriched_voc", "changes"])
     if not data or not isinstance(data, dict):
-        print(f"[enrich_voc] JSON 解析失败, 原始返回: {text[:200]}")
+        logger.warning(f"[enrich_voc] JSON 解析失败, 原始返回: {text[:200]}")
         return EnrichResult(
             enriched_voc=original_voc + "\n\n【澄清补充】\n" + qa_text,
             changes=["LLM 返回解析失败，已简单拼接答案"],
@@ -370,26 +340,23 @@ Return ONLY a JSON array, no other text:
 
     try:
         resp = client.chat.completions.create(
-            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"),
+            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=4096,
         )
         text = resp.choices[0].message.content.strip()
     except Exception as e:
-        print(f"[generate_voc_ideas] LLM call failed: {e}")
+        logger.error(f"[generate_voc_ideas] LLM call failed: {e}")
         return []
 
-    # JSON extraction
-    m = re.search(r'\[.*\]', text, re.DOTALL)
-    if not m:
-        print(f"[generate_voc_ideas] No JSON array found, raw: {text[:200]}")
+    # 使用公共 JSON 解析函数
+    items = parse_json_array_with_fallback(text)
+    if not items:
+        logger.warning(f"[generate_voc_ideas] JSON 解析失败, 原始返回: {text[:200]}")
         return []
-
-    try:
-        items = json.loads(m.group())
-    except json.JSONDecodeError as e:
-        print(f"[generate_voc_ideas] JSON parse failed: {e}")
+    if not isinstance(items, list):
+        logger.warning(f"[generate_voc_ideas] 解析结果不是数组: {type(items)}")
         return []
 
     ideas: list[VocIdea] = []

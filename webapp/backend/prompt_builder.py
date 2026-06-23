@@ -128,8 +128,9 @@ def build_user_prompt(
     voc: str,
     patents: list[dict],
     doc_analysis: str | None = None,
+    deep_search_data: dict | None = None,
 ) -> str:
-    """构建 user prompt：任务指令 → VOC → 入选专利 → 参考材料。
+    """构建 user prompt：任务指令 → VOC → Deep Search 全景（如有）→ 入选专利 → 参考材料。
 
     任务指令放最前面，确保模型带着目的去读专利详情。
     """
@@ -162,11 +163,25 @@ def build_user_prompt(
         "- **每个章节都要有内容**：不要输出空章节。如果某个章节没有足够信息，"
         "写明「基于现有专利数据不足以完成此章节，建议补充 XX 实验」\n\n"
         "报告结构遵循 final_report_template。"
-        "直接输出报告正文。"
+        "直接输出报告正文。\n"
+        "## 章节标题格式\n"
+        "使用双语格式报告章节标题，如：\n"
+        "| 中文标题 | 英文标题 |\n"
+        "| Executive Summary | 执行摘要 |\n"
+        "| CTQ Matrix | CTQ 矩阵 |\n"
+        "| Patent Technical Extraction Summary | 专利技术抽取摘要 |\n"
+        "| Cross-Evidence X-Y Synthesis | 跨证据 X-Y 综合 |\n"
+        "| Feasibility and Risk Screen | 可行性与风险筛查 |\n"
+        "| Experiment Portfolio | 实验组合 |\n"
+        "即：`## 1. Executive Summary / 执行摘要`"
     )
 
     # ---- VOC ----
     parts.append(f"# 用户 VOC\n\n{voc}\n")
+
+    # ---- Deep Search 全景（市场格局 + CTQ 表 + 技术路线 + FTO + 洞察） ----
+    if deep_search_data:
+        parts.append(_build_deep_search_context(deep_search_data))
 
     # ---- 文档分析（用户上传的参考资料）----
     if doc_analysis:
@@ -204,6 +219,228 @@ def build_user_prompt(
     parts.append(_build_skill_reference())
 
     return "\n\n".join(parts)
+
+
+def _build_deep_search_context(data: dict) -> str:
+    """构建 Deep Search 全景上下文，插入报告 prompt。
+
+    将结构化 Deep Search 数据（市场份额、CTQ 表、技术路线、FTO、洞察）
+    格式化为 LLM 可直接使用的参考材料。所有数据来自 patent_search.py
+    引擎真实返回 + LLM 分析，带来源标注 ([P]/[T]/[D] 等)。
+
+    Args:
+        data: Deep Search 完整输出，含 market_share, companies, ctq_table,
+              tech_routes, fto, convergence, search_path, cap_note 等。
+
+    Returns:
+        格式化的 Markdown 参考材料字符串。
+    """
+    lines: list[str] = []
+    lines.append("# Deep Search 市场与技术全景分析（已由前置管线完成）\n")
+    lines.append("以下分析结果由 VOC Scout + Deep Search 管线自动生成，"
+                 "你需要将这些信息整合到报告的「市场洞察 / Market Insights」章节中。\n")
+
+    # -- 1. 市场份额排名 --
+    ms = data.get("market_share") or {}
+    if ms.get("top_suppliers"):
+        lines.append("## 1. 市场份额排名（专利数 ≠ 市场地位）\n")
+        lines.append("| 排名 | 公司 | 国别 | 全球份额 | 定位 | 来源 |")
+        lines.append("|------|------|------|----------|------|------|")
+        for s in ms["top_suppliers"][:10]:
+            name = s.get("name", "")
+            country = s.get("country", "")
+            share = s.get("share_pct", "")
+            source = s.get("source", "[D]")
+            lines.append(f"| {s.get('rank', '')} | {name} | {country} | ~{share}% | | {source} |")
+        if ms.get("concentration"):
+            lines.append(f"\n行业集中度: {ms['concentration']}")
+        if ms.get("notes"):
+            lines.append(f"\n{ms['notes']}")
+        lines.append("")
+
+    # -- 2. 公司优先级列表（来自 Scout 输出） --
+    companies = data.get("companies") or {}
+    priority = companies.get("priority", [])
+    if priority:
+        lines.append("## 2. 重点公司优先级\n")
+        for c in priority:
+            level = c.get("level", "P2")
+            name = c.get("name", "")
+            product = c.get("product", "")
+            tech = c.get("tech", "")
+            patent = c.get("patent", "")
+            note = c.get("note", "")
+            status = c.get("patent_status", "")
+            status_str = f" [{status}]" if status else ""
+            lines.append(f"- **{level}** | {name}{status_str}")
+            if product:
+                lines.append(f"  - 产品: {product}")
+            if tech:
+                lines.append(f"  - 技术: {tech}")
+            if patent:
+                lines.append(f"  - 代表专利: {patent}")
+            if note:
+                lines.append(f"  - 备注: {note}")
+        lines.append("")
+
+    # -- 3. CTQ 参数对照表（来自 Map-Reduce） --
+    ctq_table = data.get("ctq_table") or []
+    if ctq_table:
+        lines.append("## 3. CTQ 参数对照表（逐篇专利提取后聚合）\n")
+        lines.append("| 公司 | 产品/专利 | 关键 CTQ | 值 | 来源 |")
+        lines.append("|------|-----------|----------|-----|------|")
+        for row in ctq_table[:25]:
+            company = row.get("assignee") or row.get("name") or row.get("company") or ""
+            product = row.get("product") or row.get("patent_number") or row.get("patent") or ""
+            ctq_name = row.get("parameter") or row.get("ctq_name") or ""
+            ctq_value = row.get("value") or ""
+            source = row.get("source") or row.get("source_label") or ""
+            lines.append(f"| {company} | {product} | {ctq_name} | {ctq_value} | {source} |")
+        lines.append("")
+
+    # 也单独列出 Map-Reduce 的 ctq_records（较完整的字段）
+    ctq_records = data.get("ctq_records") or []
+    if ctq_records and not ctq_table:
+        lines.append("## 3. CTQ 提取记录\n")
+        for r in ctq_records[:20]:
+            pn = r.get("patent_number", "")
+            assignee = r.get("assignee", "")
+            route = r.get("tech_route", "")
+            status = r.get("patent_status", "")
+            fto_flag = r.get("fto_flag", "")
+            expiry = r.get("expiry_est", "")
+            notes = r.get("notes", "")
+            lines.append(f"- **{pn}** ({assignee}) | {route} | {status} | FTO:{fto_flag} | 过期:{expiry}")
+            for ctq in r.get("ctq", []):
+                name = ctq.get("name", "")
+                val = ctq.get("value", "")
+                cond = ctq.get("condition", "")
+                method = ctq.get("method", "")
+                unit = ctq.get("unit", "")
+                detail = f"  - {name}: {val}"
+                if unit:
+                    detail += f" {unit}"
+                if cond:
+                    detail += f" ({cond})"
+                if method:
+                    detail += f" [{method}]"
+                lines.append(detail)
+            if notes and notes not in ("", "Empty/too-short full text", "Parse failed"):
+                lines.append(f"  - 备注: {notes}")
+        lines.append("")
+
+    # -- 4. 技术路线全景 --
+    routes = data.get("tech_routes") or data.get("routes") or []
+    if routes:
+        lines.append("## 4. 技术路线全景\n")
+        for r in routes:
+            name = r.get("name") or r.get("route_name") or ""
+            principle = r.get("principle") or r.get("description") or ""
+            companies_list = r.get("companies") or []
+            if isinstance(companies_list, list) and companies_list and isinstance(companies_list[0], dict):
+                company_names = [c.get("name", "") for c in companies_list]
+            else:
+                company_names = companies_list if isinstance(companies_list, list) else []
+            lines.append(f"- **{name}** — {principle}")
+            if company_names:
+                lines.append(f"  代表公司: {', '.join(company_names[:5])}")
+        lines.append("")
+
+    # -- 5. FTO 风险评估 --
+    fto = data.get("fto") or {}
+    if fto:
+        lines.append("## 5. FTO 风险评估\n")
+        # 高风险
+        high = fto.get("high_risk", [])
+        if high:
+            lines.append("### ⚠️ 高风险（活跃专利，需规避）\n")
+            for item in high:
+                p = item.get("patent", "")
+                c = item.get("company", "")
+                e = item.get("expiry_est", "")
+                n = item.get("note", "")
+                lines.append(f"- {p} ({c}) 预计过期: {e} {n}")
+            lines.append("")
+        # 中风险
+        medium = fto.get("medium_risk", [])
+        if medium:
+            lines.append("### 中风险\n")
+            for item in medium[:8]:
+                p = item.get("patent", "")
+                c = item.get("company", "")
+                e = item.get("expiry_est", "")
+                lines.append(f"- {p} ({c}) 预计过期: {e}")
+            lines.append("")
+        # 已过期
+        expired = fto.get("expired_free", [])
+        if expired:
+            lines.append("### ✅ 已过期/可自由使用\n")
+            for item in expired[:8]:
+                p = item.get("patent", "")
+                c = item.get("company", "")
+                lines.append(f"- {p} ({c})")
+            lines.append("")
+        # 规避建议
+        avoidance = fto.get("avoidance_notes", [])
+        if avoidance:
+            lines.append("### 规避建议\n")
+            for n in avoidance:
+                lines.append(f"- {n}")
+            lines.append("")
+        # 推荐 FTO 搜索式
+        sweep = fto.get("recommended_sweep_query", "")
+        if sweep:
+            lines.append(f"**推荐 FTO 清理检索式**: `{sweep}`")
+        sweep_ipc = fto.get("sweep_ipc", [])
+        if sweep_ipc:
+            lines.append(f"**推荐 IPC**: {', '.join(sweep_ipc)}")
+        lines.append("")
+
+    # -- 6. 搜索路径 + 收敛状态 --
+    search_path = data.get("search_path", "")
+    converged = data.get("converged", False)
+    total_companies = data.get("total_companies_found", 0)
+    total_found = data.get("total_found", 0)
+    cap_note = data.get("cap_note", "")
+    if search_path:
+        lines.append("## 6. 搜索路径与收敛状态\n")
+        lines.append(f"- 搜索路径: {search_path}")
+        lines.append(f"- 收敛: {'✅ 已收敛' if converged else '⚠️ 未完全收敛'}")
+        lines.append(f"- 发现公司: {total_companies} 家")
+        lines.append(f"- 发现专利: {total_found} 篇")
+        if cap_note:
+            lines.append(f"- {cap_note}")
+        lines.append("")
+
+    # -- 7. 已知局限（强制） --
+    known_limits = data.get("known_limitations") or data.get("limitations") or []
+    if known_limits:
+        lines.append("## 7. ⚠️ 已知局限（本报告必须包含）\n")
+        for limit in known_limits:
+            lines.append(f"- {limit}")
+        lines.append("")
+
+    # -- 8. 建议 --
+    rec = data.get("recommendation") or {}
+    if rec:
+        lines.append("## 8. 管线建议\n")
+        if rec.get("short_term"):
+            lines.append(f"- **短期**: {rec['short_term']}")
+        if rec.get("medium_term"):
+            lines.append(f"- **中期**: {rec['medium_term']}")
+        if rec.get("long_term"):
+            lines.append(f"- **长期**: {rec['long_term']}")
+        lines.append("")
+
+    # -- 元数据 --
+    confidence = data.get("confidence", "★★☆")
+    domain = data.get("domain_class", "")
+    if domain:
+        lines.append(f"**领域**: {domain} | **信心度**: {confidence}")
+    lines.append("**来源标注**: [P]=专利 [T]=产品TDS [A]=学术论文 [C]=临床 [D]=领域知识 [E]=估算")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 def _truncate_detail(detail_text: str, desc_budget: int) -> str:

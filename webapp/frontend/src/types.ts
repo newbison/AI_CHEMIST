@@ -74,3 +74,121 @@ export interface UploadDocResponse {
   text_preview: string
   error?: string
 }
+
+// ===========================================================================
+// VOC Scout + Deep Search 类型
+// ===========================================================================
+
+/** ScoutStep 组件的阶段 */
+export type ScoutPhase = 'scout_round1' | 'scout_round2' | 'scout_output'
+
+/** Round 1 的一条技术路线 */
+export interface ScoutTechRoute {
+  id: string
+  name: string
+  description: string
+  companies: string[]
+  products: string[]
+  key_diff: string
+  patent_status_hint: string  // 'expired' | 'active' | 'pending' | ''
+  confidence: string           // '★★★' | '★★☆' | '★☆☆'
+}
+
+/** Round 1 响应 */
+export interface ScoutRound1Response {
+  domain_class: string
+  confidence: string
+  analysis: string
+  routes: ScoutTechRoute[]
+  contradictions: string[]
+}
+
+/** Round 2 中一家公司的详情 */
+export interface ScoutCompanyDetail {
+  level: string               // 'P0' | 'P1' | 'P2'
+  name: string
+  tech_summary: string
+  patent_number: string
+  patent_status: string       // 'expired' | 'active' | 'pending' | ''
+  key_ctq: Record<string, string>
+  notes: string[]
+  source_labels: string[]     // ['[T]', '[P]'] 等
+}
+
+/** Round 2 中一条路线的详情 */
+export interface ScoutRouteDetail {
+  route_id: string
+  route_name: string
+  companies: ScoutCompanyDetail[]
+}
+
+/** Round 2 响应 */
+export interface ScoutRound2Response {
+  routes: ScoutRouteDetail[]
+  contradictions: string[]
+  confidence: string
+}
+
+/** 三件套工具包输出 */
+export interface ScoutOutputResponse {
+  companies: {
+    priority: {
+      level: string
+      name: string
+      product?: string
+      tech?: string
+      patent_status?: string
+      patent?: string
+      note?: string
+      source?: string
+    }[]
+    domestic_reference: string[]
+  }
+  keywords: {
+    core: string[]
+    supplement: string[]
+    exclude: string[]
+  }
+  ipc: {
+    core: string[]
+    supplement: string[]
+  }
+  fto: {
+    notes: string[]
+    sweep_query: string
+  }
+  round_history: Record<string, unknown>[]
+  confidence: string
+}
+
+/** Deep Search 收敛状态 */
+export interface ConvergenceStatus {
+  converged: boolean
+  total_rounds: number
+  new_routes_this_round: number
+  new_companies_this_round: number
+  reason: string
+}
+
+/** Deep Search 完整输出 */
+export interface DeepSearchOutput {
+  voc: string
+  domain_class: string
+  confidence: string
+  search_path: string
+  converged: boolean
+  total_rounds: number
+  total_companies_found: number
+  routes: Record<string, unknown>[]
+  ctq_table: Record<string, unknown>[]
+  fto: Record<string, unknown>
+  recommendation: {
+    short_term: string
+    medium_term: string
+    long_term: string
+  }
+  convergence: ConvergenceStatus
+  user_corrections: Record<string, unknown>[]
+  /** Deep Search 返回的专利列表 */
+  patents?: Patent[]
+}

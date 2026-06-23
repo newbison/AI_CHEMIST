@@ -1,50 +1,141 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { T } from '../i18n'
-import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse, ClarifyQuestion, ClarifyVocResponse, EnrichVocResponse } from '../types'
+import type { Patent, SearchResponse, SearchStrategy, AnalyzeVocResponse, ClarifyQuestion, ClarifyVocResponse, EnrichVocResponse, ScoutOutputResponse, DeepSearchOutput } from '../types'
 import ExploreStep from './ExploreStep'
+import ScoutStep from './ScoutStep'
 
-/** 材料科学领域 VOC 示例池（每次随机展示 12 个） */
-const VOC_POOL: string[] = [
-  '锂电池电芯终止胶带，要求在电解液（碳酸酯类，含 LiPF6）长期浸泡（85°C/72h 及以上）下保持粘接力不脱落、不溶胀、无残胶、不污染电解液；同时电气绝缘可靠，在高温和冷热循环下稳定工作；且便于产线手工/自动贴附、易撕定位、不起翘。',
-  '医用钛合金植入物表面涂层，要求在体液环境下（37°C，pH 7.4）长期稳定（10 年以上）不降解、不释放金属离子；涂层需具备良好的生物相容性，促进骨整合；硬度 ≥ 5GPa，耐磨耐疲劳；表面粗糙度 Ra ≤ 0.5μm，适合精密加工。',
-  '柔性 OLED 显示屏用透明导电薄膜，要求透光率 ≥ 88%（550nm），方阻 ≤ 50Ω/□；在 1000 次弯折（R=3mm）后电阻变化率 < 10%；耐高温 150°C/1000h 稳定；与 PET 基材附着力强，无分层；适合卷对卷量产工艺。',
-  '氢燃料电池质子交换膜，要求在 80°C、100% RH 下质子电导率 ≥ 0.1 S/cm；气体渗透率 < 10⁻⁸ cm³/cm²·s·cmHg；厚度 10-20μm 且均匀；耐化学降解（Fenton 试剂测试 ≥ 100h）；机械强度 ≥ 30MPa，适合 MEA 热压装配。',
-  '建筑用低辐射（Low-E）玻璃镀膜，要求辐射率 ≤ 0.08；可见光透射比 ≥ 60%；红外反射率 ≥ 85%；在户外曝晒 10 年后性能衰减 < 5%；耐酸碱清洗；适合大面积磁控溅射镀膜工艺，膜层均匀无色差。',
-  '碳纤维增强环氧树脂复合材料（CFRP），要求拉伸强度 ≥ 1500MPa，模量 ≥ 120GPa；层间剪切强度 ≥ 80MPa；在湿热环境（70°C/85%RH/1000h）后强度保留率 ≥ 85%；Tg ≥ 180°C；适合预浸料热压罐成型，孔隙率 < 1%。',
-  '半导体封装用环氧塑封料（EMC），要求 Tg ≥ 160°C；热膨胀系数 CTE ≤ 15ppm/°C；吸水率 < 0.3%（PCT 121°C/100%RH/96h）；阻燃 UL94 V-0；螺旋流动长度 80-120cm；成型后无气泡、无翘曲，适合高可靠性 IC 封装。',
-  '钙钛矿太阳能电池吸光层，要求光电转换效率 ≥ 22%；在连续光照 1000h（AM1.5G, 1 sun）后效率保持率 ≥ 90%；带隙 1.5-1.6eV 可调；晶粒尺寸 ≥ 1μm，无针孔；耐湿度（RH 50% 环境稳定）；适合溶液法大面积涂布。',
-  '高温合金涡轮叶片热障涂层（TBC），要求陶瓷层热导率 ≤ 1.5 W/m·K；抗热震性 ≥ 1000 次循环（1100°C↔室温）；与粘结层结合强度 ≥ 40MPa；表面粗糙度 Ra ≤ 6μm；耐高温氧化（1100°C/1000h）；适合 EB-PVD 或等离子喷涂工艺。',
-  '锂离子电池硅碳复合负极材料，要求比容量 ≥ 800 mAh/g；首次库仑效率 ≥ 85%；循环 500 次（0.5C）容量保持率 ≥ 80%；体积膨胀率 < 30%；粒度 D50 = 8-12μm；适合水系匀浆涂布工艺，与现有石墨产线兼容。',
-  '海水淡化用反渗透复合膜（RO），要求脱盐率 ≥ 99.5%；水通量 ≥ 40 L/m²·h（测试条件 1.5MPa, 2000ppm NaCl, 25°C）；耐氯性 ≥ 1000 ppm·h；耐 pH 2-12 清洗；使用寿命 ≥ 5 年；适合卷式膜元件生产。',
-  '电磁屏蔽用导电硅橡胶，要求体积电阻率 ≤ 0.05 Ω·cm；屏蔽效能 ≥ 80dB（10MHz-10GHz）；硬度 60-80 Shore A；拉伸强度 ≥ 5MPa；耐老化 150°C/1000h；适合模压成型，尺寸精度 ±0.05mm；适合 5G 基站密封屏蔽。',
-  '生物可降解聚乳酸（PLA）薄膜，要求在土壤中 6 个月内降解率 ≥ 90%；拉伸强度 ≥ 50MPa；透光率 ≥ 90%；氧气透过率 < 500 cm³/m²·24h；热封温度 80-120°C；适合吹膜工艺，厚度 20-50μm，用于食品包装。',
-  '固态电池硫化物电解质，要求室温离子电导率 ≥ 10⁻³ S/cm；电子电导率 < 10⁻⁹ S/cm；电化学窗口 ≥ 5V（vs Li）；与金属锂界面稳定；可冷压成型，致密度 ≥ 95%；适合干法电极涂布工艺，厚度 20-50μm。',
-  '航空航天用耐高温胶粘剂，要求工作温度 -55°C 至 230°C；剪切强度 ≥ 25MPa（室温）；在 200°C/1000h 后强度保留率 ≥ 70%；耐航空液压油、燃油；适合蜂窝结构粘接；固化温度 ≤ 180°C，固化时间 ≤ 2h。',
-  '自修复聚合物涂层，要求在室温下划痕（宽度 < 100μm）48h 内愈合率 ≥ 90%；附着力 ≥ 5B（ASTM D3359）；耐盐雾 ≥ 1000h；透光率 ≥ 90%（若透明）；适合喷涂或刷涂，表干 ≤ 2h，实干 ≤ 24h；用于汽车面漆。',
-  '压电陶瓷换能器材料（PZT），要求压电常数 d33 ≥ 500 pC/N；机电耦合系数 kp ≥ 0.65；介电常数 εr = 1500-3000；居里温度 Tc ≥ 300°C；机械品质因数 Qm = 50-200；适合烧结成型，密度 ≥ 7.8 g/cm³，用于医用超声探头。',
-  '导热相变材料（PCM），要求热导率 ≥ 5 W/m·K；相变温度 55-65°C；潜热 ≥ 150 J/g；循环 1000 次后潜热衰减 < 5%；与芯片无腐蚀、无渗漏；适合丝网印刷或模压成型，厚度 0.1-0.5mm，用于电子器件散热。',
-  '耐磨自润滑聚甲醛（POM）复合材料，要求摩擦系数 ≤ 0.2；磨损率 < 1×10⁻⁶ mm³/N·m；在 -40°C 至 100°C 范围稳定；拉伸强度 ≥ 60MPa；尺寸稳定性好（吸水率 < 0.2%）；适合注塑成型，用于精密齿轮和轴承。',
-  '电致变色智能窗玻璃，要求着色/褪色时间 < 30s（25mm×25mm 样品）；着色态透射比 ≤ 10%，褪色态 ≥ 60%；循环寿命 ≥ 10000 次；驱动电压 ≤ 3V；耐紫外老化（1000h）性能衰减 < 5%；适合大面积（≥ 1m²）制备。',
-  '海水钢管环氧防腐涂层，要求耐盐雾 ≥ 3000h 无起泡；附着力 ≥ 8MPa；耐阴极剥离（48V, 25°C, 30d）剥离半径 < 8mm；干膜厚度 300-500μm；耐磨损（Taber 1kg/1000r）失重 < 50mg；适合无气喷涂，表干 ≤ 4h。',
-  '燃料电池气体扩散层（GDL）碳纸，要求孔隙率 70-80%；透气率 ≥ 1000 mL·mm/cm²·h·mmAq；厚度 100-200μm 且均匀；体积电阻率 ≤ 15 mΩ·cm；弯曲强度 ≥ 10MPa；适合辊压成型，表面经 PTFE 疏水处理。',
-  '可拉伸电子用液态金属导电墨水，要求室温电导率 ≥ 3×10⁶ S/m；在 100% 拉伸应变下电阻变化 < 50%；与 PDMS/ Ecoflex 基材附着力强；粘度 10-100 mPa·s；适合丝网印刷或喷墨打印；无毒、无泄漏风险。',
-  '核电站用耐辐射电缆绝缘材料，要求在 γ 射线累计剂量 ≥ 1000 MGy 后拉伸强度保留率 ≥ 60%；工作温度 -40°C 至 90°C；氧指数 ≥ 30%；耐 LOCA 环境（175°C 蒸汽/345kPa/30d）；适合挤出成型，绝缘厚度 0.5-2mm。',
-  '医用可吸收止血海绵（氧化再生纤维素），要求在血液中 2-5 分钟内完全止血；28 天内体内完全吸收；pH 3.0-4.5（酸性抑菌）；无菌、无致热原；拉伸强度 ≥ 0.5MPa（干燥态）；适合冻干成型，孔径 50-200μm。',
-  '锂金属电池人工固态电解质界面（SEI），要求锂离子电导率 ≥ 10⁻⁴ S/cm；电子绝缘；机械模量 ≥ 1GPa（抑制锂枝晶）；在锂金属界面稳定 ≥ 500 次循环；厚度 < 100nm 且均匀；适合原位或非原位制备工艺。',
-  '高温压电单晶 PMN-PT，要求压电常数 d33 ≥ 1500 pC/N；机电耦合系数 k33 ≥ 0.90；居里温度 Tc ≥ 150°C；介电损耗 tan δ ≤ 0.01；尺寸 ≥ 5mm×5mm×5mm 单晶；适合布里奇曼法生长，用于医用超声和水声换能器。',
-  '超疏水自清洁建筑外墙涂层，要求水接触角 ≥ 150°，滚动角 ≤ 5°；耐紫外老化 2000h 后性能保持率 ≥ 80%；附着力 ≥ 2B；耐沾污性 ≤ 10%（反射率下降）；适合喷涂施工，表干 ≤ 2h，使用寿命 ≥ 10 年。',
-  '钠离子电池硬碳负极材料，要求可逆容量 ≥ 300 mAh/g；首次库仑效率 ≥ 85%；循环 1000 次（0.5C）容量保持率 ≥ 80%；平均储钠电位 ≤ 0.2V vs Na⁺/Na；粒度 D50 = 5-15μm；适合生物质前驱体碳化工艺，成本 < 5 万元/吨。',
-  '医用导管用聚氨酯弹性体，要求硬度 70-90 Shore A；拉伸强度 ≥ 40MPa；断裂伸长率 ≥ 400%；耐血液相容性（溶血率 < 5%）；耐 γ 射线灭菌（25kGy）后性能稳定；适合挤出成型，壁厚 0.2-1mm，用于中心静脉导管。',
+/** 材料科学领域 VOC 示例池（每次随机展示 12 个，中英文双语，应用导向无具体参数） */
+const VOC_POOL: { en: string; zh: string }[] = [
+  {
+    en: "Battery cell termination tape that maintains adhesion after long-term exposure to electrolyte at high temperatures. The tape should not swell, leave residue, or contaminate the electrolyte. It must provide reliable electrical insulation and work stably under thermal cycling. Additionally, it should be easy to apply and remove during manufacturing.",
+    zh: "一种电池终止胶带，在高温电解液中长期浸泡后仍保持粘接力。不溶胀、无残胶、不污染电解液。电气绝缘可靠，冷热循环下稳定工作。便于产线贴附和撕除定位。"
+  },
+  {
+    en: "Silicon-carbon composite anode material for lithium-ion batteries that achieves high capacity while maintaining structural stability during charge-discharge cycles. The material should minimize volume expansion and be compatible with existing graphite production lines.",
+    zh: "一种锂离子电池用硅碳复合负极材料，在充放电循环中保持结构稳定的高容量表现。需控制体积膨胀，与现有石墨负极产线兼容。"
+  },
+  {
+    en: "Surface coating for titanium orthopedic implants that provides long-term stability in body fluid environment without degradation or metal ion release over 10 years. The coating must promote bone integration and maintain mechanical properties such as hardness and fatigue resistance.",
+    zh: "一种钛合金骨科植入物表面涂层，在体液环境下10年以上不降解、不释放金属离子。需促进骨整合，保持硬度和耐疲劳等机械性能。"
+  },
+  {
+    en: "Transparent conductive film for flexible OLED displays that achieves high optical transmittance and low sheet resistance while maintaining performance after repeated bending. The film should be compatible with roll-to-roll manufacturing processes.",
+    zh: "一种柔性OLED显示屏用透明导电薄膜，具有高透光率和低方阻，弯折多次后仍保持性能。需与卷对卷生产工艺兼容。"
+  },
+  {
+    en: "Electrochromic smart window glass that can switch between transparent and tinted states quickly and repeatedly. The device should have long cycle life and work reliably in large-area applications.",
+    zh: "一种电致变色智能窗玻璃，能在透明和着色状态间快速反复切换。需具有长循环寿命，在大面积应用中可靠工作。"
+  },
+  {
+    en: "Proton exchange membrane for hydrogen fuel cells that enables high proton conductivity under operating conditions while providing excellent chemical stability and mechanical strength suitable for hot-pressing membrane electrode assembly.",
+    zh: "一种氢燃料电池质子交换膜，在工作条件下实现高质子电导率，同时具备优异的化学稳定性和适合热压MEA装配的机械强度。"
+  },
+  {
+    en: "Perovskite solar cell light-absorbing layer that achieves high power conversion efficiency while maintaining stability under continuous illumination and humidity exposure. The material should be suitable for large-area solution-based coating processes.",
+    zh: "一种钙钛矿太阳能电池吸光层，在连续光照和湿度环境下保持稳定的高转换效率。需适合溶液法大面积涂布工艺。"
+  },
+  {
+    en: "Low-emissivity glass coating for architectural applications that provides good thermal insulation performance while maintaining high visible light transmission. The coating should withstand outdoor weathering for at least 10 years without significant performance degradation.",
+    zh: "一种建筑用低辐射玻璃镀膜，在保持高可见光透射的同时提供良好的隔热性能。需耐户外老化10年以上，性能衰减小。"
+  },
+  {
+    en: "Superhydrophobic self-cleaning exterior wall coating that maintains water repellency and self-cleaning properties over long-term outdoor exposure. The coating should be easy to apply and have a service life of at least 10 years.",
+    zh: "一种超疏水自清洁建筑外墙涂层，在长期户外环境下保持疏水自清洁性能。需施工方便，使用寿命10年以上。"
+  },
+  {
+    en: "Wear-resistant self-lubricating polymer composite for precision engineering components such as gears and bearings. The material should maintain stable performance across a wide temperature range and be suitable for injection molding.",
+    zh: "一种耐磨自润滑聚合物复合材料，用于精密齿轮和轴承等工程部件。需在宽温度范围内保持稳定性能，适合注塑成型。"
+  },
+  {
+    en: "Epoxy molding compound for semiconductor packaging that provides high glass transition temperature, low thermal expansion, and high reliability under temperature and humidity stress. The material should be suitable for high-reliability IC packaging with no voids or warpage after molding.",
+    zh: "一种半导体封装用环氧塑封料，具有高玻璃化转变温度、低热膨胀系数，在温湿度应力下高可靠性。需适合高可靠性IC封装，成型后无气泡、无翘曲。"
+  },
+  {
+    en: "Thermal interface material for electronic device heat dissipation that maintains stable thermal conductivity over long-term high-temperature operation. The material should not corrode chips or leak, and be suitable for screen printing or compression molding.",
+    zh: "一种电子器件散热用导热界面材料，在长期高温工作下保持稳定导热率。需与芯片无腐蚀、无渗漏，适合丝网印刷或模压成型。"
+  },
+  {
+    en: "Reverse osmosis composite membrane for seawater desalination that achieves high salt rejection and high water flux under standard test conditions. The membrane should have good chlorine resistance and stable performance across a wide pH range for cleaning.",
+    zh: "一种海水淡化用反渗透复合膜，在标准测试条件下实现高脱盐率和高水通量。需具有良好的耐氯性，在宽pH范围内稳定清洗。"
+  },
+  {
+    en: "Carbon paper gas diffusion layer for fuel cells that provides suitable porosity and gas permeability while maintaining good electrical conductivity and mechanical strength. The material should be suitable for roll pressing and surface hydrophobic treatment.",
+    zh: "一种燃料电池用碳纸气体扩散层，具有合适的孔隙率和透气率，同时保持良好的导电性和机械强度。需适合辊压成型和表面疏水处理。"
+  },
+  {
+    en: "Carbon fiber reinforced epoxy composite for structural applications that achieves high strength and modulus while maintaining good fatigue resistance and hot-wet environment stability. The material should be suitable for prepreg-autoclave molding with low void content.",
+    zh: "一种结构用碳纤维增强环氧树脂复合材料，具有高强度和高模量，同时保持良好的耐疲劳性和湿热环境稳定性。需适合预浸料热压罐成型，孔隙率低。"
+  },
+  {
+    en: "High-temperature resistant adhesive for aerospace applications that maintains mechanical properties over a wide temperature range from cryogenic to elevated temperatures. The adhesive should be suitable for honeycomb structure bonding and have a practical curing cycle.",
+    zh: "一种航空航天用耐高温胶粘剂，在从低温到高温的宽温度范围内保持机械性能。需适合蜂窝结构粘接，具有实用的固化工艺。"
+  },
+  {
+    en: "Electrically conductive silver paste for stretchable electronics that maintains stable electrical conductivity under repeated stretching. The paste should be compatible with common substrate materials and suitable for screen or inkjet printing.",
+    zh: "一种可拉伸电子用导电银浆，在反复拉伸下保持稳定的导电性。需与常见基底材料兼容，适合丝网印刷或喷墨打印。"
+  },
+  {
+    en: "Conductive silicone rubber for electromagnetic interference shielding in 5G base station applications. The material should provide excellent shielding effectiveness across a wide frequency range while maintaining flexibility and durability.",
+    zh: "一种5G基站用电磁屏蔽导电硅橡胶，在宽频段范围内提供优异屏蔽效能，同时保持柔性和耐久性。"
+  },
+  {
+    en: "Sulfide solid-state electrolyte for all-solid-state batteries that demonstrates high ionic conductivity at room temperature and good interfacial stability with lithium metal. The material should be suitable for dry electrode coating processes.",
+    zh: "一种全固态电池用硫化物固体电解质，在室温下展现高离子电导率，与锂金属界面稳定。需适合干法电极涂布工艺。"
+  },
+  {
+    en: "Artificial solid electrolyte interphase for lithium metal batteries that enables uniform lithium plating and suppresses dendrite growth. The interphase should be ultra-thin, mechanically robust, and stable over many cycles.",
+    zh: "一种锂金属电池用人工固态电解质界面，实现均匀锂沉积并抑制枝晶生长。需超薄、机械强度高、多次循环稳定。"
+  },
+  {
+    en: "Biodegradable packaging film that degrades completely in soil within a specified timeframe while maintaining necessary mechanical and barrier properties. The material should be suitable for blown film extrusion and cost-competitive for food packaging applications.",
+    zh: "一种在土壤中特定时间内完全降解的生物降解包装薄膜，同时保持必要的机械性能和阻隔性能。需适合吹膜工艺，成本有竞争力用于食品包装。"
+  },
+  {
+    en: "Wear-resistant anti-corrosion epoxy coating for offshore steel structures that withstands harsh marine environment including salt spray and cathodic protection conditions. The coating should be suitable for airless spray application.",
+    zh: "一种海洋钢结构用耐磨防腐环氧涂层，能承受盐雾和阴极保护等恶劣海洋环境。需适合无气喷涂施工。"
+  },
+  {
+    en: "Piezoelectric ceramic material for medical ultrasound transducers that achieves high piezoelectric constants and coupling coefficients while maintaining good temperature stability. The material should be suitable for sintering forming with consistent properties.",
+    zh: "一种医用超声换能器压电陶瓷材料，具有高压电常数和耦合系数，同时保持良好的温度稳定性。需适合烧结成型，性能一致性好。"
+  },
+  {
+    en: "Phase change thermal management material for electronic devices that provides effective heat dissipation through latent heat absorption. The material should not corrode chips, maintain stable performance over many thermal cycles, and be suitable for thin-film applications.",
+    zh: "一种电子器件用相变热管理材料，通过潜热吸收提供有效散热。需不腐蚀芯片，在多次热循环下性能稳定，适合薄膜应用。"
+  },
+  {
+    en: "Medical catheter polyurethane elastomer with good flexibility, blood compatibility, and gamma sterilization stability. The material should be suitable for extrusion molding and meet requirements for central venous catheter applications.",
+    zh: "一种具有良好的柔韧性、血液相容性和γ射线灭菌稳定性的医用导管聚氨酯弹性体。需适合挤出成型，满足中心静脉导管应用要求。"
+  },
+  {
+    en: "Radiation-resistant cable insulation material for nuclear power plant applications that maintains mechanical properties after high-dose gamma radiation exposure. The material should be suitable for extrusion molding with consistent wall thickness.",
+    zh: "一种核电站用电缆辐射防护绝缘材料，在高剂量γ射线辐照后保持机械性能。需适合挤出成型，壁厚均匀一致。"
+  },
+  {
+    en: "Self-healing polymer coating for automotive clearcoat applications that can repair surface scratches autonomously under ambient conditions. The coating should maintain transparency, weather resistance, and be suitable for spray application.",
+    zh: "一种汽车清漆用自修复聚合物涂层，能在常温下自动修复表面划痕。需保持透明度、耐老化，适合喷涂施工。"
+  },
+  {
+    en: "Piezoelectric single crystal material for medical ultrasound and underwater acoustic applications that achieves ultra-high piezoelectric performance. The material should be suitable for Bridgman crystal growth method and provide consistent properties.",
+    zh: "一种用于医用超声和水声换能器的压电单晶材料，实现超高压电性能。需适合布里奇曼法生长，提供一致的性能。"
+  },
+  {
+    en: "Sodium-ion battery hard carbon anode material that achieves reversible capacity from biomass precursors while maintaining good first-cycle efficiency and cycle stability. The material should be cost-effective and suitable for carbonization processes.",
+    zh: "一种生物质前驱体钠离子电池硬碳负极材料，从生物质前驱体实现可逆容量，同时保持良好的首效和循环稳定性。需成本经济，适合碳化工艺。"
+  },
+  {
+    en: "Absorbable hemostatic sponge for surgical applications that achieves rapid hemostasis in blood and gets absorbed by the body within a specified timeframe. The material should be sterile, non-pyrogenic, and suitable for freeze-drying manufacturing.",
+    zh: "一种外科用可吸收止血海绵，在血液中快速止血并在特定时间内被体内吸收。需无菌、无致热原，适合冻干成型工艺。"
+  },
 ]
 
-/** 从池中随机抽取 n 个不重复的 VOC */
-function pickRandomVocs(pool: string[], n: number): string[] {
+/** 从池中随机抽取 n 个不重复的 VOC（根据当前语言） */
+function pickRandomVocs(pool: { en: string; zh: string }[], n: number, lang: 'en' | 'zh'): string[] {
   const arr = [...pool]
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[arr[i], arr[j]] = [arr[j], arr[i]]
   }
-  return arr.slice(0, Math.min(n, arr.length))
+  return arr.slice(0, Math.min(n, arr.length)).map(v => v[lang])
 }
 
 /** 截取 VOC 前 40 字作为卡片标题 */
@@ -58,14 +149,16 @@ export default function InputStep({
   voc,
   setVoc,
   onSearched,
+  onDeepSearchReport,
 }: {
   lang: import('../i18n').Lang
   voc: string
   setVoc: (v: string) => void
   onSearched: (all: Patent[], selected: Patent[], strategies: SearchStrategy[]) => void
+  onDeepSearchReport?: (all: Patent[], selected: Patent[], strategies: SearchStrategy[], deepSearchData: Record<string, unknown>) => void
 }) {
-  // 阶段：'input' 输入VOC → 'clarify' 回答选择题 → 'enriched' 确认增强VOC → 'keywords' AI生成关键词供确认 → 检索
-  const [phase, setPhase] = useState<'input' | 'clarify' | 'enriched' | 'explore' | 'keywords'>('input')
+  // 阶段：'input' → 'scout' → 'deepsearch' → 'clarify' → 'enriched' → 'explore' → 'keywords'
+  const [phase, setPhase] = useState<'input' | 'scout' | 'deepsearch' | 'clarify' | 'enriched' | 'explore' | 'keywords'>('input')
   const [analyzing, setAnalyzing] = useState(false)
   const [searching, setSearching] = useState(false)
   const [clarifying, setClarifying] = useState(false)
@@ -73,13 +166,22 @@ export default function InputStep({
   const [error, setError] = useState('')
   const [strategies, setStrategies] = useState<SearchStrategy[]>([])
   const [patentNum, setPatentNum] = useState<number>(20)
-  const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 12))
+  const [sampleVocs, setSampleVocs] = useState<string[]>(() => pickRandomVocs(VOC_POOL, 12, lang))
   // 澄清环节状态
   const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([])
   const [clarifyAnalysis, setClarifyAnalysis] = useState('')
   const [clarifyAnswers, setClarifyAnswers] = useState<Record<string, string>>({})
   const [enrichedVoc, setEnrichedVoc] = useState('')
   const [enrichChanges, setEnrichChanges] = useState<string[]>([])
+  // Deep Search 状态
+  const [scoutOutput, setScoutOutput] = useState<ScoutOutputResponse | null>(null)
+  const [marketShare, setMarketShare] = useState<any>(null)
+  const [dsResult, setDsResult] = useState<any>(null)
+  const [dsLoading, setDsLoading] = useState(false)
+  const [mrResult, setMrResult] = useState<any>(null)
+  const [mrLoading, setMrLoading] = useState(false)
+  const [mrProgress, setMrProgress] = useState<{ completed: number; total: number } | null>(null)
+  const dsStartedRef = useRef(false)
 
   // 触发 VOC 澄清：调 /api/clarify-voc 生成选择题
   async function handleClarify() {
@@ -219,8 +321,9 @@ export default function InputStep({
     setStrategies((prev) => [...prev, { angle: '自定义角度', query: '', rationale: '手动添加' }])
   }
 
-  // 重新生成关键词
+  // 重新生成关键词（清空 VOC 重新开始）
   function reAnalyze() {
+    setVoc('')
     setStrategies([])
     setPhase('input')
   }
@@ -257,6 +360,177 @@ export default function InputStep({
       setError(e instanceof Error ? e.message : '检索出错')
     }
     setSearching(false)
+  }
+
+  // Deep Search：进入 deepsearch 阶段时自动调用
+  useEffect(() => {
+    if (phase !== 'deepsearch' || !scoutOutput || dsStartedRef.current) return
+    dsStartedRef.current = true
+    async function runDeepSearch() {
+      setDsLoading(true)
+      setError('')
+      try {
+        const resp = await fetch('/api/deep-search/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            voc,
+            domain_class: '',
+            p0_companies: scoutOutput!.companies.priority.filter(c => c.level === 'P0').map(c => c.name),
+            p1_companies: scoutOutput!.companies.priority.filter(c => c.level === 'P1').map(c => c.name),
+            core_keywords: scoutOutput!.keywords.core || [],
+            supp_keywords: scoutOutput!.keywords.supplement || [],
+            exclude_keywords: scoutOutput!.keywords.exclude || [],
+            core_ipc: scoutOutput!.ipc.core || [],
+            supp_ipc: scoutOutput!.ipc.supplement || [],
+            fto_notes: scoutOutput!.fto.notes || [],
+            round_history: scoutOutput!.round_history || [],
+          }),
+        })
+        if (!resp.ok) throw new Error(`Deep Search failed: ${resp.status}`)
+        const data = await resp.json()
+        setDsResult(data)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Deep Search error')
+      }
+      setDsLoading(false)
+    }
+    runDeepSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, scoutOutput])
+
+  // Map-Reduce：对 Deep Search 返回的 capped 专利号运行 CTQ 提取（SSE 流式进度）
+  async function runMapReduce() {
+    if (!dsResult?.patent_numbers?.length) return
+    setMrLoading(true)
+    setMrProgress(null)
+    setError('')
+    try {
+      const resp = await fetch('/api/deep-search/map-reduce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patent_numbers: dsResult.patent_numbers,
+          max_patents: dsResult.patent_numbers.length,
+        }),
+      })
+      if (!resp.ok) throw new Error(`Map-Reduce failed: ${resp.status}`)
+
+      const reader = resp.body?.getReader()
+      if (!reader) throw new Error('No response body reader')
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const msg = JSON.parse(line.slice(6))
+              if (msg.type === 'progress' && msg.stage === 'ctq') {
+                setMrProgress({ completed: msg.completed, total: msg.total })
+              } else if (msg.type === 'reduce_start') {
+                setMrProgress(null) // clear counter, show "aggregating..."
+              } else if (msg.type === 'done') {
+                setMrResult(msg.result)
+              } else if (msg.type === 'error') {
+                setError(msg.message || 'Map-Reduce error')
+              }
+            } catch { /* skip parse errors on heartbeat lines */ }
+          }
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Map-Reduce error')
+    }
+    setMrLoading(false)
+    setMrProgress(null)
+  }
+
+/** MR 统计信息 */
+interface MrStats {
+  fetch_success_rate?: string
+  ctq_extracted?: number
+  total_requested?: number
+}
+
+/** MR 结果类型 */
+interface MrResult {
+  stats?: MrStats
+  ctq_comparison_table?: Record<string, unknown>[]
+  ctq_records?: Record<string, unknown>[]
+}
+
+  // 根据 DS 收敛状态 + MR 统计自动生成已知局限
+  function buildKnownLimitations(ds: DeepSearchOutput, mr: MrResult): string[] {
+    const limits: string[] = []
+    if (!ds.converged) {
+      limits.push('搜索未完全收敛，可能存在未覆盖的技术路线或公司')
+    }
+    if (mr?.stats) {
+      const rate = mr.stats.fetch_success_rate || ''
+      if (rate.includes('⚠️')) {
+        limits.push('部分专利全文抓取失败，CTQ 数据可能不完整')
+      }
+      limits.push(`CTQ 提取覆盖率: ${mr.stats.ctq_extracted || 0}/${mr.stats.total_requested || 0} 篇专利`)
+    }
+    limits.push('中文实用新型、日文/韩文专利未系统检索')
+    limits.push('本报告适合行业格局初判与技术方向选择，不适合 FTO 最终法律判断')
+    limits.push('专利法律状态为基于公开日的估算，正式 FTO 请以各国专利局登记簿为准')
+    return limits
+  }
+
+  // 将 Deep Search 结果 + Scout 输出打包，送往报告生成
+  function handleDeepSearchReport() {
+    if (!dsResult?.patents || !onDeepSearchReport) return
+
+    // 转换 DS 专利为 Patent[] 格式
+    const patents = dsResult.patents || []
+    const allPatents: Patent[] = patents.map((p: Patent) => ({
+      patent_number: p.patent_number || '',
+      title: p.title || '',
+      assignee: p.assignee || '',
+      snippet: p.snippet || '',
+      publication_date: p.publication_date || '',
+      source: p.source || 'deep_search',
+      url: p.url || '',
+      country: p.country || '',
+    }))
+
+    // 组装 Deep Search 全景数据（直接喂给 prompt_builder）
+    const dsData: Record<string, unknown> = {
+      // 市场份额
+      market_share: marketShare,
+      // 公司优先级
+      companies: scoutOutput?.companies || {},
+      // CTQ 表
+      ctq_table: mrResult?.ctq_comparison_table || [],
+      ctq_records: mrResult?.ctq_records || [],
+      // 技术路线（从 scoutOutput 或 dsResult）
+      tech_routes: dsResult.routes || [],
+      // FTO
+      fto: dsResult.fto || {},
+      // 搜索路径 + 收敛
+      search_path: dsResult.search_path || '',
+      converged: dsResult.converged || false,
+      total_companies_found: dsResult.total_companies_found || 0,
+      total_found: dsResult.total_found || 0,
+      cap_note: dsResult.cap_note || '',
+      // 建议
+      recommendation: dsResult.recommendation || {},
+      // 领域 + 信心
+      domain_class: dsResult.domain_class || '',
+      confidence: dsResult.confidence || '★★☆',
+      // 已知局限（由 DS 收敛状态决定）
+      known_limitations: buildKnownLimitations(dsResult, mrResult),
+    }
+
+    onDeepSearchReport(allPatents, allPatents.slice(0, 8), [], dsData)
   }
 
   return (
@@ -324,7 +598,7 @@ export default function InputStep({
           </div>
           <button
             className="link-btn"
-            onClick={() => setSampleVocs(pickRandomVocs(VOC_POOL, 12))}
+            onClick={() => setSampleVocs(pickRandomVocs(VOC_POOL, 12, lang))}
             type="button"
           >
             ↻ 换一批示例
@@ -347,23 +621,54 @@ export default function InputStep({
       </div>
 
       {phase === 'input' && (
-        <button
-          className="primary-btn"
-          onClick={handleClarify}
-          disabled={clarifying || analyzing}
-        >
-          {clarifying ? (
-            <>
-              <span className="spinner" /> AI 分析 VOC 生成澄清问题...
-            </>
-          ) : analyzing ? (
-            <>
-              <span className="spinner" /> AI 分析 VOC 生成检索关键词...
-            </>
-          ) : (
-            'AI 澄清 VOC →'
-          )}
-        </button>
+        <div className="input-phase-buttons" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            className="primary-btn"
+            onClick={() => setPhase('scout')}
+            disabled={clarifying || analyzing || !voc.trim()}
+            type="button"
+          >
+            AI Scout: 浏览技术全景 →
+          </button>
+          <button
+            className="ghost-btn"
+            onClick={handleClarify}
+            disabled={clarifying || analyzing || !voc.trim()}
+            type="button"
+          >
+            {clarifying ? (
+              <>
+                <span className="spinner" /> AI 分析 VOC 生成澄清问题...
+              </>
+            ) : analyzing ? (
+              <>
+                <span className="spinner" /> AI 分析 VOC 生成检索关键词...
+              </>
+            ) : (
+              'AI 澄清 VOC →'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* VOC Scout 阶段：AI 探索技术全景 */}
+      {phase === 'scout' && (
+        <ScoutStep
+          lang={lang}
+          voc={voc}
+          onOutput={(output: ScoutOutputResponse) => {
+            setScoutOutput(output)
+            setPhase('deepsearch')
+          }}
+          onRound1Data={(data) => {
+            if (data.market_share) setMarketShare(data.market_share)
+          }}
+          onSkip={() => {
+            // 跳过 Scout，直接进入关键词生成
+            setPhase('keywords')
+            setTimeout(() => handleAnalyze(), 0)
+          }}
+        />
       )}
 
       {/* VOC 澄清阶段：回答选择题 */}
@@ -516,6 +821,171 @@ export default function InputStep({
           }}
           onBack={() => setPhase('input')}
         />
+      )}
+
+      {/* Deep Search 阶段：三轮迭代专利挖掘 */}
+      {phase === 'deepsearch' && (
+        <div className="deepsearch-panel">
+          <div className="deepsearch-header">
+            <h2 className="deepsearch-title">{T.deepSearchTitle[lang]}</h2>
+            <p className="deepsearch-sub">{T.deepSearchSub[lang]}</p>
+          </div>
+
+          {/* 加载中 */}
+          {dsLoading && (
+            <div className="deepsearch-loading">
+              <span className="spinner" /> {T.deepSearchSearching[lang]}
+            </div>
+          )}
+
+          {/* Deep Search 结果 */}
+          {dsResult && !dsLoading && (
+            <div className="deepsearch-results">
+              <div className="ds-result-card">
+                <span className="ds-label">{T.deepSearchSearchPath[lang]}:</span>
+                <span className="ds-value">{dsResult.search_path}</span>
+              </div>
+
+              <div className="ds-stats-row">
+                <div className="ds-stat">
+                  <span className="ds-stat-num">{dsResult.total_companies_found}</span>
+                  <span className="ds-stat-label">{T.deepSearchCompaniesFound[lang]}</span>
+                </div>
+                <div className="ds-stat">
+                  <span className="ds-stat-num">{dsResult.total_found}</span>
+                  <span className="ds-stat-label">{T.deepSearchPatentsFound[lang]}</span>
+                </div>
+                <div className="ds-stat ds-stat-cap">
+                  <span className="ds-stat-num">{dsResult.capped_to}</span>
+                  <span className="ds-stat-label">{T.deepSearchCappedTo[lang]}</span>
+                </div>
+              </div>
+
+              <div className="ds-convergence">
+                {dsResult.converged ? (
+                  <span className="ds-converged-yes">{T.deepSearchConverged[lang]}</span>
+                ) : (
+                  <span className="ds-converged-no">{T.deepSearchNotConverged[lang]}</span>
+                )}
+              </div>
+
+              {dsResult.cap_note && (
+                <p className="ds-cap-note">📊 {dsResult.cap_note}</p>
+              )}
+
+              {/* Map-Reduce 按钮（无手动数量选择！） */}
+              <div className="ds-mr-section">
+                {!mrLoading && !mrResult && (
+                  <button
+                    className="primary-btn"
+                    onClick={runMapReduce}
+                    disabled={!dsResult.patent_numbers?.length}
+                    type="button"
+                  >
+                    {T.deepSearchBtnMR[lang]}
+                  </button>
+                )}
+
+                {mrLoading && (
+                  <div className="deepsearch-loading">
+                    <span className="spinner" />
+                    {mrProgress
+                      ? (lang === 'zh'
+                          ? `正在处理第 ${mrProgress.completed}/${mrProgress.total} 篇专利...`
+                          : `Processing patent ${mrProgress.completed} of ${mrProgress.total}...`)
+                      : T.deepSearchMRProgress[lang]}
+                  </div>
+                )}
+
+                {mrResult && !mrLoading && (
+                  <div className="mr-results">
+                    <h3 className="mr-done-title">✅ {T.deepSearchMRDone[lang]}</h3>
+
+                    {mrResult.stats && (
+                      <div className="mr-stats">
+                        <span>请求: {mrResult.stats.total_requested} 篇</span>
+                        <span>抓取成功: {mrResult.stats.fetch_ok} 篇</span>
+                        <span>提取 CTQ: {mrResult.stats.ctq_extracted} 篇</span>
+                        <span className="mr-rate">{mrResult.stats.fetch_success_rate}</span>
+                      </div>
+                    )}
+
+                    {mrResult.ctq_comparison_table?.length > 0 && (
+                      <div className="mr-ctq-table-wrap">
+                        <table className="mr-ctq-table">
+                          <thead>
+                            <tr>
+                              <th>Company</th>
+                              <th>CTQ Parameter</th>
+                              <th>Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mrResult.ctq_comparison_table.slice(0, 20).map((row: Record<string, unknown>, ri: number) => (
+                              <tr key={ri}>
+                                <td>{String(row.assignee || row.name || '-')}</td>
+                                <td>{String(row.parameter || row.ctq_name || '-')}</td>
+                                <td>{String(row.value || '-')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {mrResult.error && (
+                      <div className="error-banner">{mrResult.error}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 生成报告按钮（用 Deep Search 数据） */}
+              {onDeepSearchReport && (
+                <div className="ds-report-section">
+                  <button
+                    className="primary-btn"
+                    onClick={handleDeepSearchReport}
+                    type="button"
+                  >
+                    📊 基于全景分析生成 R&D 报告 →
+                  </button>
+                  <p className="ds-report-hint">
+                    报告将包含市场份额排名、CTQ 对比表、技术路线全景、FTO 风险评估和已知局限。
+                  </p>
+                </div>
+              )}
+
+              {/* 也可跳到旧的专利检索流程 */}
+              <div className="ds-alt-actions">
+                <button
+                  className="ghost-btn"
+                  onClick={() => {
+                    setPhase('keywords')
+                    setTimeout(() => handleAnalyze(), 0)
+                  }}
+                  type="button"
+                >
+                  {T.deepSearchBtnSkip[lang]}
+                </button>
+                <button
+                  className="ghost-btn"
+                  onClick={() => {
+                    dsStartedRef.current = false
+                    setDsResult(null)
+                    setMrResult(null)
+                    setPhase('scout')
+                  }}
+                  type="button"
+                >
+                  {T.deepSearchBtnBack[lang]}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {error && <div className="error-banner">{error}</div>}
+        </div>
       )}
 
       {/* 关键词确认/修改阶段 */}

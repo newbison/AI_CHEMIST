@@ -155,7 +155,7 @@ def _translate_keywords(keywords: str) -> str:
             "English:"
         )
         resp = client.chat.completions.create(
-            model="deepseek-chat",
+            model="deepseek-v4-pro",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
             max_tokens=256,
@@ -818,7 +818,7 @@ def search_via_llm(keywords: str, *, num: int = 15) -> list[Patent]:
 ]"""
 
         resp = client.chat.completions.create(
-            model="deepseek-chat",
+            model="deepseek-v4-pro",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
             max_tokens=4096,

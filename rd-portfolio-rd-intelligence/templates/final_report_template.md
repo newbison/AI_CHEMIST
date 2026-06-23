@@ -1,4 +1,4 @@
-# R&D Portfolio Intelligence Report
+# [根据 VOC 和专利内容，自动生成一个简洁、专业的报告标题，格式如：「XXX 技术专利分析报告」或「XXX 技术/材料研究报告」或「XXX 领域专利全景与技术洞察」- 标题长度控制在20字以内，英文不超过25个单词，直接以 # 标题 开头，不要用引号]
 
 ## 1. Executive Summary
 - Customer need:
@@ -27,10 +27,15 @@
 | Customer Need | CTQ | Y Metric | Test Method | Initial Target | Risk |
 |---|---|---|---|---|---|
 
-## 5. Evidence Mining Plan and Findings
+## 5. Market Insights / 市场洞察
+> 本章节整合了 Deep Search 管线自动生成的市场份额排名、重点公司优先级、技术路线格局和 FTO 筛查结果。
+
+- **市场份额与竞争格局**：
+- **重点公司技术布局**：
+- **技术路线分布**：
+- **FTO 风险评估**：
 - Internal knowledge:
 - Commercial benchmarks:
-- Patent landscape:
 - Literature / standards:
 
 ## 6. Patent Technical Extraction Summary

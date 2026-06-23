@@ -10,6 +10,7 @@ export default function ReportStep({
   voc,
   patents,
   docAnalysis,
+  deepSearchData,
   onBack,
   onHome,
 }: {
@@ -17,10 +18,12 @@ export default function ReportStep({
   voc: string
   patents: Patent[]
   docAnalysis?: string | null
+  deepSearchData?: Record<string, unknown> | null
   onBack: () => void
   onHome: () => void
 }) {
   const [report, setReport] = useState('')
+  const [reportTitle, setReportTitle] = useState<string | null>(null)  // 动态标题
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
   const [meta, setMeta] = useState<{ patent_count: number } | null>(null)
@@ -45,7 +48,7 @@ export default function ReportStep({
       const resp = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voc, patents, fetch_details: true, doc_analysis: docAnalysis }),
+        body: JSON.stringify({ voc, patents, fetch_details: true, doc_analysis: docAnalysis, language: lang, deep_search_data: deepSearchData }),
         signal: controller.signal,
       })
       if (!resp.ok) throw new Error(`生成失败: ${resp.status}`)
@@ -102,7 +105,17 @@ export default function ReportStep({
               }
               setProgressStage(stageText[evt.stage] || evt.stage || '')
             } else if (evt.type === 'chunk') {
-              setReport((prev) => prev + evt.content)
+              setReport((prev) => {
+                const next = prev + evt.content
+                // 从 Markdown 内容中提取第一行作为标题（# 开头）
+                if (!reportTitle && next.startsWith('# ')) {
+                  const firstLine = next.split('\n')[0].replace(/^#\s*/, '').trim()
+                  if (firstLine && !firstLine.includes('根据 VOC') && firstLine.length > 3) {
+                    setReportTitle(firstLine)
+                  }
+                }
+                return next
+              })
               setProgressStage('') // 开始收到内容，清除进度提示
             } else if (evt.type === 'done') {
               setStatus('done')
@@ -205,7 +218,7 @@ export default function ReportStep({
     <div className="step-container report-step">
       <div className="report-header">
         <div>
-          <h1 className="hero-title">R&D 智能报告</h1>
+          <h1 className="hero-title">{reportTitle || (lang === 'zh' ? 'R&D 智能报告生成中...' : 'Generating R&D Intelligence Report...')}</h1>
           <p className="hero-sub">
             {meta ? `基于 ${meta.patent_count} 篇专利生成` : `基于 ${patents.length} 篇专利生成`}
             {status === 'generating' && (progressStage ? ` · ${progressStage}` : ' · 生成中...')}
