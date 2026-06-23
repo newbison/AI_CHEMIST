@@ -139,32 +139,55 @@ def _translate_keywords(keywords: str) -> str:
     """用 DeepSeek 将中文关键词翻译成英文（用于 Google Patents 搜索）。
 
     返回翻译后的英文关键词，如翻译失败则原样返回。
+    对于复杂 VOC（多句中文），会拆成 2-3 组核心技术词分别翻译再拼接。
     """
     if not _needs_translation(keywords):
         return keywords
+
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key:
+        print("[translate] 无 API key，跳过翻译")
         return keywords
+
+    # 如果 VOC 很长（整段描述），先提取核心技术词再翻译，避免整段文学翻译
+    # 长 VOC 的文学翻译往往把技术术语意译掉，不适合专利搜索
+    to_translate = keywords
+    if len(keywords) > 60:
+        to_translate = (
+            f"Extract 3-5 core technical keyword groups (English preferred, with synonyms) "
+            f"from this Chinese requirement for patent search:\n{keywords}"
+        )
+
     try:
         from openai import OpenAI
         client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         prompt = (
-            "Translate the following Chinese keywords into an English search query "
-            "for patent searching (keep key technical terms in English, add synonyms).\n"
-            f"Chinese: {keywords}\n"
-            "English:"
+            "Translate the following Chinese technical keywords into concise English "
+            "patent search queries. Keep technical terms precise (e.g. '感光干膜' → "
+            "'dry film photoresist'). Add relevant English synonyms. "
+            "Output ONLY the English keywords, no explanation, no Chinese.\n\n"
+            f"{to_translate}"
         )
         resp = client.chat.completions.create(
-            model="deepseek-v4-pro",
+            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro"),
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
-            max_tokens=256,
+            max_tokens=512,
+            extra_body={"thinking": {"type": "disabled"}},
         )
         translated = resp.choices[0].message.content.strip()
+        # 清洗：去掉翻译器可能追加的前缀文本
+        for prefix in ("English:", "Translation:", "Keywords:"):
+            if translated.lower().startswith(prefix.lower()):
+                translated = translated[len(prefix):].strip()
         if translated and _needs_translation(translated):
-            # 翻译后仍是中文则丢弃
+            # 翻译后仍是中文（V4 thinking 污染等边缘情况）→ 丢弃
+            print(f"[translate] 翻译结果仍含中文，丢弃: {translated[:100]}")
             return keywords
-        return translated or keywords
+        if translated:
+            print(f"[translate] 翻译成功: {keywords[:60]}... → {translated[:120]}")
+            return translated
+        return keywords
     except Exception as e:
         print(f"[translate] 翻译失败: {e}")
         return keywords

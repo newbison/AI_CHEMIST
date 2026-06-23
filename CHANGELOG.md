@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.0.1] — 2026-06-23
+
+### 🐛 Chinese Keyword Translation Fix
+
+- **`patent_search.py`**: Fixed `_translate_keywords()` failing silently under V4 Pro — added `extra_body={"thinking": {"type": "disabled"}}`, increased max_tokens 256→512, improved prompt with real examples ("感光干膜" → "dry film photoresist"). Previously, thinking mode consumed the 256-token budget leaving Chinese untranslated.
+- **`deep_search.py`**: Added keyword translation at pipeline start — `core_keywords`/`supp_keywords` are now translated to English before hitting Google Patents (English-only index). Raw Chinese keywords produced zero results.
+- **Verified end-to-end**: "喷墨打印头用微流控芯片相关的感光干膜" → 30 unique patents found after fix.
+
 ## [v2.0] — 2026-06-23
 
 ### 🚀 Model Upgrade: deepseek-chat (V3) → deepseek-v4-pro

@@ -36,6 +36,7 @@ from patent_search import (  # ← 关键：Deep Search 引擎，唯一数据源
     search_cn_patents,
     search_by_strategies,
     fetch_patent_detail,
+    _translate_keywords,
 )
 
 
@@ -709,20 +710,45 @@ def run_deep_search_pipeline(inp: DeepSearchInput) -> dict:
 
     all_patents: list[Patent] = []
     known_companies = set(inp.p0_companies + inp.p1_companies)
-    known_keywords = set(inp.core_keywords + inp.supp_keywords)
     known_ipc = set(inp.core_ipc + inp.supp_ipc)
     search_path_parts: list[str] = []
     total_rounds = 0
+
+    # 翻译中文关键词 → 英文（Google Patents 用英文索引，中文搜不到）
+    raw_core_kw = inp.core_keywords
+    raw_supp_kw = inp.supp_keywords
+    en_core_kw = [_translate_keywords(kw) for kw in raw_core_kw]
+    en_supp_kw = [_translate_keywords(kw) for kw in raw_supp_kw]
+    # 去重合并：英文翻译 + 中文原文（备用）
+    known_keywords = set(raw_core_kw + raw_supp_kw + en_core_kw + en_supp_kw)
+    # 优先用英文翻译作为搜索关键词，翻译失败的保留中文原文走 WIPO/CN 备用
+    search_core_kw = [kw for kw in en_core_kw if kw and kw != raw_core_kw[en_core_kw.index(kw)]] if len(en_core_kw) == len(raw_core_kw) else en_core_kw
+    # 简化：取翻译后的关键词，长度异常的（翻译失败回退中文）保留原文
+    final_core_kw: list[str] = []
+    for i, en_kw in enumerate(en_core_kw):
+        orig = raw_core_kw[i] if i < len(raw_core_kw) else ""
+        if en_kw and en_kw != orig:  # 翻译成功
+            final_core_kw.append(en_kw)
+        else:  # 翻译失败，保留原文
+            final_core_kw.append(orig)
+    final_supp_kw: list[str] = []
+    for i, en_kw in enumerate(en_supp_kw):
+        orig = raw_supp_kw[i] if i < len(raw_supp_kw) else ""
+        if en_kw and en_kw != orig:
+            final_supp_kw.append(en_kw)
+        else:
+            final_supp_kw.append(orig)
+    print(f"[deep_search] Keywords translated: core {raw_core_kw} → {final_core_kw}, supp {raw_supp_kw} → {final_supp_kw}")
 
     # --- Round 1: 初始宽搜 -------------------------------------------------
     total_rounds += 1
     search_path_parts.append("R1(initial company + keyword scan)")
     r1_new: list[Patent] = []
 
-    # 1a: P0 公司定向搜索
+    # 1a: P0 公司定向搜索（用英文翻译后的关键词）
     for company in inp.p0_companies:
         try:
-            patents = search_round_company(company, inp.core_keywords)
+            patents = search_round_company(company, final_core_kw)
             r1_new.extend(patents)
         except Exception as e:
             print(f"[deep_search] R1 company search failed for '{company}': {e}")
@@ -730,13 +756,13 @@ def run_deep_search_pipeline(inp: DeepSearchInput) -> dict:
     # 1b: P1 公司定向搜索
     for company in inp.p1_companies:
         try:
-            patents = search_round_company(company, inp.core_keywords[:2])
+            patents = search_round_company(company, final_core_kw[:2])
             r1_new.extend(patents)
         except Exception as e:
             print(f"[deep_search] R1 company search failed for '{company}': {e}")
 
-    # 1c: 核心关键词 + IPC 宽搜（不限公司）
-    for kw in inp.core_keywords[:3]:
+    # 1c: 核心关键词 + IPC 宽搜（不限公司，用英文关键词）
+    for kw in final_core_kw[:3]:
         try:
             q = kw
             if inp.core_ipc:
@@ -747,7 +773,7 @@ def run_deep_search_pipeline(inp: DeepSearchInput) -> dict:
             print(f"[deep_search] R1 keyword search failed for '{kw}': {e}")
 
     # 1d: 补充关键词搜索
-    for kw in inp.supp_keywords[:4]:
+    for kw in final_supp_kw[:4]:
         try:
             q = kw
             if inp.supp_ipc:
@@ -800,7 +826,7 @@ def run_deep_search_pipeline(inp: DeepSearchInput) -> dict:
         name = nc if isinstance(nc, str) else nc.get("name", "")
         if name and name not in known_companies:
             try:
-                patents = search_round_company(name, inp.core_keywords[:2])
+                patents = search_round_company(name, final_core_kw[:2])
                 r2_new.extend(patents)
                 known_companies.add(name)
             except Exception as e:
